@@ -1,0 +1,1963 @@
+<!doctype html>
+
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- CyberAware page marker -->
+    <meta name="cyberaware-page" content="true" />
+
+    <title>Browser Protection Extension · CyberAware</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&family=Plus+Jakarta+Sans:wght@700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link rel="stylesheet" href="../css/styles.css" />
+  </head>
+
+  <body data-cyberaware-page="true">
+    <div id="app-root"></div>
+
+    <script src="../js/data.js"></script>
+
+    <script src="../js/app.js"></script>
+
+    <script src="../js/components.js"></script>
+
+    <script>
+      // ==========================================
+      // CYBERAWARE EXTENSION PAGE
+      // ==========================================
+
+      Layout.base = "";
+
+      document.getElementById("app-root").innerHTML = `
+
+        ${Layout.loader()}
+
+        <div class="app-shell">
+
+          ${Layout.studentSidebar()}
+
+          <div class="main-area">
+
+            ${Layout.topbar("Browser Protection")}
+
+            <main
+              class="page-content"
+              id="page-main"
+            ></main>
+
+          </div>
+
+        </div>
+
+      `;
+
+      Layout.renderNotifs();
+
+      App.init();
+
+      // ==========================================
+      // CURRENT DEMO STATE
+      // ==========================================
+
+      let mode = "safe";
+
+      // ==========================================
+      // RENDER PAGE
+      // ==========================================
+
+      function render() {
+        const page = document.getElementById("page-main");
+
+        page.innerHTML = `
+
+
+          <!-- ==================================
+               HERO
+          =================================== -->
+
+          <div class="page-header animate-in">
+
+            <div
+              class="badge badge-success mb-3"
+              style="
+                display:inline-flex;
+                align-items:center;
+                gap:6px
+              "
+            >
+
+              🛡️ ACTIVE BROWSER PROTECTION
+
+            </div>
+
+
+            <h1>
+
+              Browse the web with
+
+              <span class="gradient-text">
+                CyberAware
+              </span>
+
+            </h1>
+
+
+            <p>
+
+              CyberAware automatically scans websites for suspicious
+              URLs, phishing signals, credential requests and scam patterns
+              before they can put your information at risk.
+
+            </p>
+
+          </div>
+
+
+
+          <!-- ==================================
+               LIVE PROTECTION PREVIEW
+          =================================== -->
+
+          <div
+            class="card card-static animate-in"
+            style="margin-bottom:2rem"
+          >
+
+            <div
+              class="flex justify-between items-center"
+              style="
+                gap:1rem;
+                flex-wrap:wrap
+              "
+            >
+
+              <div>
+
+                <h2 style="margin:0">
+                  Browser Protection Preview
+                </h2>
+
+                <p class="text-sm text-muted mt-1">
+
+                  See how CyberAware responds to
+                  different website risk levels.
+
+                </p>
+
+              </div>
+
+
+              <div
+                class="badge badge-success"
+                style="
+                  display:inline-flex;
+                  align-items:center;
+                  gap:6px
+                "
+              >
+
+                ● Protection Active
+
+              </div>
+
+            </div>
+
+
+            <!-- Risk buttons -->
+
+            <div
+              class="flex gap-2 mt-4"
+              style="flex-wrap:wrap"
+            >
+
+              <button
+                class="btn ${
+                  mode === "safe" ? "btn-success" : "btn-secondary"
+                } btn-sm"
+                id="btn-safe"
+              >
+
+                🟢 Safe
+
+              </button>
+
+
+              <button
+                class="btn ${
+                  mode === "suspicious" ? "btn-warning" : "btn-secondary"
+                } btn-sm"
+                id="btn-suspicious"
+              >
+
+                🟠 Suspicious
+
+              </button>
+
+
+              <button
+                class="btn ${
+                  mode === "danger" ? "btn-danger" : "btn-secondary"
+                } btn-sm"
+                id="btn-danger"
+              >
+
+                🔴 Dangerous
+
+              </button>
+
+            </div>
+
+          </div>
+
+
+
+          <!-- ==================================
+               BROWSER + RISK PANEL
+          =================================== -->
+
+          <div
+            class="grid-2"
+            style="
+              align-items:start;
+              margin-bottom:2rem
+            "
+          >
+
+
+            <!-- Browser preview -->
+
+            <div>
+
+              <div class="ext-phone animate-in">
+
+                <div class="ext-toolbar">
+
+                  <span
+                    class="ext-dot"
+                    style="background:#ef4444"
+                  ></span>
+
+                  <span
+                    class="ext-dot"
+                    style="background:#f59e0b"
+                  ></span>
+
+                  <span
+                    class="ext-dot"
+                    style="background:#10b981"
+                  ></span>
+
+
+                  <div class="ext-url">
+
+                    ${
+                      mode === "safe"
+                        ? "https://careers.microsoft.com/internships"
+                        : mode === "suspicious"
+                          ? "https://secure-account-verify.example"
+                          : "http://microsoft-careers-secure.example"
+                    }
+
+                  </div>
+
+
+                  <span
+                    title="CyberAware Protection"
+                    style="font-size:1.1rem"
+                  >
+
+                    🛡️
+
+                  </span>
+
+                </div>
+
+
+                <div
+                  style="
+                    padding:1.25rem;
+                    min-height:360px;
+                    position:relative
+                  "
+                >
+
+                  ${
+                    mode === "safe"
+                      ? safeScreen()
+                      : mode === "suspicious"
+                        ? suspiciousScreen()
+                        : dangerScreen()
+                  }
+
+                </div>
+
+              </div>
+
+            </div>
+
+
+
+            <!-- Risk panel -->
+
+            <div class="flex flex-col gap-4">
+
+
+              <!-- Risk indicator -->
+
+              <div class="card card-static">
+
+                <h3 class="mb-3">
+
+                  Website Risk Indicator
+
+                </h3>
+
+
+                <div
+                  class="flex items-center gap-3 mb-4"
+                >
+
+                  <div
+                    style="
+                      width:64px;
+                      height:64px;
+                      border-radius:16px;
+                      display:grid;
+                      place-items:center;
+                      font-size:1.75rem;
+                      background:${
+                        mode === "safe"
+                          ? "rgba(16,185,129,0.15)"
+                          : mode === "suspicious"
+                            ? "rgba(245,158,11,0.15)"
+                            : "rgba(239,68,68,0.15)"
+                      };
+                    "
+                  >
+
+                    ${
+                      mode === "safe"
+                        ? "🟢"
+                        : mode === "suspicious"
+                          ? "🟠"
+                          : "🔴"
+                    }
+
+                  </div>
+
+
+                  <div>
+
+                    <div
+                      style="
+                        font-size:1.4rem;
+                        font-weight:800
+                      "
+                    >
+
+                      ${
+                        mode === "safe"
+                          ? "Safe · 12/99"
+                          : mode === "suspicious"
+                            ? "Suspicious · 55/99"
+                            : "Dangerous · 94/99"
+                      }
+
+                    </div>
+
+
+                    <div class="text-sm text-muted">
+
+                      ${
+                        mode === "safe"
+                          ? "No suspicious activity detected"
+                          : mode === "suspicious"
+                            ? "Suspicious verification signals detected"
+                            : "Multiple high-risk phishing signals detected"
+                      }
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+
+                <!-- Risk meter -->
+
+                <div
+                  style="
+                    height:10px;
+                    border-radius:999px;
+                    background:
+                      linear-gradient(
+                        90deg,
+                        #22c55e 0%,
+                        #22c55e 40%,
+                        #f59e0b 40%,
+                        #f59e0b 80%,
+                        #ef4444 80%,
+                        #ef4444 100%
+                      );
+                    position:relative;
+                    overflow:visible;
+                  "
+                >
+
+                  <div
+                    style="
+                      position:absolute;
+                      top:50%;
+                      left:${
+                        mode === "safe" ? 12 : mode === "suspicious" ? 55 : 94
+                      }%;
+                      transform:translate(-50%,-50%);
+                      width:18px;
+                      height:18px;
+                      border-radius:50%;
+                      background:white;
+                      border:3px solid #0f172a;
+                      box-shadow:
+                        0 2px 8px rgba(0,0,0,0.4);
+                    "
+                  ></div>
+
+                </div>
+
+
+                <div
+                  class="
+                    flex
+                    justify-between
+                    text-xs
+                    text-muted
+                    mt-2
+                  "
+                >
+
+                  <span>Safe</span>
+
+                  <span>Suspicious</span>
+
+                  <span>Dangerous</span>
+
+                </div>
+
+              </div>
+
+
+
+              <!-- Features -->
+
+              <div class="card card-static">
+
+                <h3 class="mb-3">
+
+                  Automatic Protection
+
+                </h3>
+
+
+                ${[
+                  [
+                    "🔍",
+                    "Automatic website scanning",
+                    "CyberAware scans pages automatically when they load.",
+                  ],
+
+                  [
+                    "🔗",
+                    "URL analysis",
+                    "Suspicious URL patterns are checked by the risk engine.",
+                  ],
+
+                  [
+                    "🔐",
+                    "Phishing detection",
+                    "Password, OTP and verification requests are analyzed.",
+                  ],
+
+                  [
+                    "💳",
+                    "Scam signal detection",
+                    "Payment, registration fee and reward lures are detected.",
+                  ],
+
+                  [
+                    "⚠️",
+                    "Instant warning",
+                    "Risky websites receive an on-page warning.",
+                  ],
+
+                  [
+                    "🚪",
+                    "Leave Site protection",
+                    "Users can leave a dangerous website immediately.",
+                  ],
+                ]
+                  .map(
+                    ([icon, title, description]) => `
+
+                        <div
+                          class="flex gap-3 mb-3"
+                        >
+
+                          <div
+                            class="stat-icon"
+                            style="
+                              width:38px;
+                              height:38px;
+                              flex-shrink:0;
+                              font-size:1rem;
+                            "
+                          >
+
+                            ${icon}
+
+                          </div>
+
+
+                          <div>
+
+                            <strong class="text-sm">
+                              ${title}
+                            </strong>
+
+
+                            <div class="text-xs text-muted">
+                              ${description}
+                            </div>
+
+                          </div>
+
+                        </div>
+
+                      `,
+                  )
+                  .join("")}
+
+
+              </div>
+
+
+
+              <!-- ==================================
+                   DOWNLOAD CYBERAWARE
+              =================================== -->
+
+              <div>
+
+                <button
+                  class="
+                    btn
+                    btn-primary
+                    btn-lg
+                    w-full
+                  "
+                  id="install-btn"
+                >
+
+                  ⬇️ Download CyberAware Extension
+
+                </button>
+
+
+                <!-- ==================================
+                     INSTALLATION FLOW PANEL
+                =================================== -->
+
+                <div
+                  id="cyberaware-installation"
+                  style="
+                    display:none;
+                    margin-top:1rem;
+                    padding:1.25rem;
+                    border-radius:16px;
+                    border:1px solid rgba(59,130,246,.3);
+                    background:rgba(59,130,246,.08);
+                  "
+                >
+
+
+                  <!-- Installation Header -->
+
+                  <div
+                    class="flex justify-between items-center"
+                    style="gap:1rem"
+                  >
+
+                    <div>
+
+                      <div
+                        class="badge mb-2"
+                        style="
+                          background:rgba(59,130,246,.15);
+                          color:#60a5fa;
+                        "
+                      >
+
+                        EXTENSION DOWNLOAD
+
+                      </div>
+
+
+                      <h3 style="margin:0">
+
+                        🛡️ Install CyberAware
+
+                      </h3>
+
+
+                      <p class="text-sm text-muted mt-1">
+
+                        Download the extension ZIP and follow
+                        the Chrome installation steps below.
+
+                      </p>
+
+                    </div>
+
+
+                    <button
+                      type="button"
+                      class="btn btn-secondary btn-sm"
+                      id="close-install"
+                    >
+
+                      ✕
+
+                    </button>
+
+                  </div>
+
+
+
+                  <!-- Download button inside guide -->
+
+                  <div
+                    class="alert mt-4"
+                    style="
+                      background:rgba(34,197,94,.10);
+                      border:1px solid rgba(34,197,94,.25);
+                    "
+                  >
+
+                    <div style="width:100%">
+
+                      <strong>
+
+                        📦 CyberAware Extension ZIP
+
+                      </strong>
+
+                      <p class="text-sm text-muted mt-1">
+
+                        If the download did not start,
+                        use the button below.
+
+                      </p>
+
+
+                      <a
+                        href="../assets/downloads/CyberAware_Extension.zip"
+                        download="CyberAware_Extension.zip"
+                        class="
+                          btn
+                          btn-success
+                          btn-sm
+                          mt-2
+                        "
+                      >
+
+                        ⬇️ Download ZIP
+
+                      </a>
+
+                    </div>
+
+                  </div>
+
+
+
+                  <!-- Important notice -->
+
+                  <div
+                    class="alert mt-4"
+                    style="
+                      background:rgba(245,158,11,.10);
+                      border:1px solid rgba(245,158,11,.25);
+                    "
+                  >
+
+                    <div>
+
+                      <strong>
+
+                        ℹ️ Manual Chrome installation required
+
+                      </strong>
+
+                      <p class="text-sm text-muted mt-1">
+
+                        Chrome does not allow a normal website
+                        to silently install a local unpacked extension.
+                        Download the ZIP, extract it, and load the
+                        extracted folder through Chrome Developer Mode.
+
+                      </p>
+
+                    </div>
+
+                  </div>
+
+
+
+                  <!-- STEP 1 -->
+
+                  <div
+                    class="timeline-item"
+                    style="margin-top:1rem"
+                  >
+
+                    <strong>
+
+                      1. Download the extension
+
+                    </strong>
+
+                    <p class="text-sm text-muted">
+
+                      Download
+
+                      <code class="font-mono">
+                        CyberAware_Extension.zip
+                      </code>
+
+                      using the download button above.
+
+                    </p>
+
+                  </div>
+
+
+
+                  <!-- STEP 2 -->
+
+                  <div class="timeline-item">
+
+                    <strong>
+
+                      2. Extract the ZIP file
+
+                    </strong>
+
+                    <p class="text-sm text-muted">
+
+                      Right-click the downloaded ZIP file
+                      and choose
+
+                      <strong>
+                        Extract All
+                      </strong>
+
+                      to create the
+
+                      <code class="font-mono">
+                        CyberAware_Extension
+                      </code>
+
+                      folder.
+
+                    </p>
+
+                  </div>
+
+
+
+                  <!-- STEP 3 -->
+
+                  <div class="timeline-item">
+
+                    <strong>
+
+                      3. Open Chrome Extensions
+
+                    </strong>
+
+                    <p class="text-sm text-muted">
+
+                      Open Chrome and visit
+
+                      <code class="font-mono">
+                        chrome://extensions
+                      </code>
+
+                    </p>
+
+                  </div>
+
+
+
+                  <!-- STEP 4 -->
+
+                  <div class="timeline-item">
+
+                    <strong>
+
+                      4. Enable Developer Mode
+
+                    </strong>
+
+                    <p class="text-sm text-muted">
+
+                      Turn on
+
+                      <strong>
+                        Developer Mode
+                      </strong>
+
+                      from the top-right corner.
+
+                    </p>
+
+                  </div>
+
+
+
+                  <!-- STEP 5 -->
+
+                  <div class="timeline-item">
+
+                    <strong>
+
+                      5. Load CyberAware
+
+                    </strong>
+
+                    <p class="text-sm text-muted">
+
+                      Click
+
+                      <strong>
+                        Load unpacked
+                      </strong>
+
+                      and select the extracted
+
+                      <code class="font-mono">
+                        CyberAware_Extension
+                      </code>
+
+                      folder.
+
+                    </p>
+
+                  </div>
+
+
+
+                  <!-- STEP 6 -->
+
+                  <div class="timeline-item">
+
+                    <strong>
+
+                      6. Pin CyberAware
+
+                    </strong>
+
+                    <p class="text-sm text-muted">
+
+                      Pin the CyberAware extension
+                      to the Chrome toolbar.
+
+                    </p>
+
+                  </div>
+
+
+
+                  <!-- STEP 7 -->
+
+                  <div class="timeline-item">
+
+                    <strong>
+
+                      7. Turn Protection ON
+
+                    </strong>
+
+                    <p class="text-sm text-muted">
+
+                      Open the CyberAware extension
+                      and keep Protection enabled.
+
+                    </p>
+
+                  </div>
+
+
+
+                  <!-- Automatic protection -->
+
+                  <div
+                    class="
+                      alert
+                      alert-success
+                      mt-4
+                    "
+                  >
+
+                    <div>
+
+                      <strong>
+
+                        ✅ Automatic protection
+
+                      </strong>
+
+                      <p class="text-sm text-muted mt-1">
+
+                        Once enabled, CyberAware automatically
+                        analyzes websites as they load.
+
+                        You do not need to manually scan
+                        every website.
+
+                      </p>
+
+                    </div>
+
+                  </div>
+
+
+
+                  <!-- Installation completed -->
+
+                  <button
+                    type="button"
+                    class="
+                      btn
+                      btn-primary
+                      w-full
+                      mt-3
+                    "
+                    id="installation-done"
+                  >
+
+                    ✓ I've Completed the Steps
+
+                  </button>
+
+
+                  <p
+                    class="
+                      text-xs
+                      text-muted
+                      text-center
+                      mt-2
+                    "
+                  >
+
+                    This button only records your confirmation.
+                    It does not verify the extension installation.
+
+                  </p>
+
+                </div>
+
+              </div>
+
+
+            </div>
+
+          </div>
+
+
+
+          <!-- ==================================
+               RISK LEVELS
+          =================================== -->
+
+          <div
+            class="card card-static"
+            style="margin-bottom:2rem"
+          >
+
+            <h2 class="mb-2">
+
+              How CyberAware Classifies Websites
+
+            </h2>
+
+
+            <p class="text-sm text-muted mb-4">
+
+              The risk engine combines multiple signals
+              and produces a score from 0 to 99.
+
+            </p>
+
+
+            <div class="grid-3">
+
+
+              <!-- SAFE -->
+
+              <div
+                style="
+                  padding:1.2rem;
+                  border-radius:14px;
+                  background:rgba(34,197,94,0.08);
+                  border:1px solid rgba(34,197,94,0.2);
+                "
+              >
+
+                <div style="font-size:2rem">
+                  🟢
+                </div>
+
+                <h3 style="margin:.5rem 0">
+                  Safe
+                </h3>
+
+                <div
+                  class="
+                    badge
+                    badge-success
+                    mb-2
+                  "
+                >
+
+                  0–39 / 99
+
+                </div>
+
+                <p class="text-sm text-muted">
+
+                  No significant suspicious signals
+                  were detected.
+
+                </p>
+
+              </div>
+
+
+
+              <!-- SUSPICIOUS -->
+
+              <div
+                style="
+                  padding:1.2rem;
+                  border-radius:14px;
+                  background:rgba(245,158,11,0.08);
+                  border:1px solid rgba(245,158,11,0.2);
+                "
+              >
+
+                <div style="font-size:2rem">
+                  🟠
+                </div>
+
+                <h3 style="margin:.5rem 0">
+                  Suspicious
+                </h3>
+
+                <div
+                  class="badge mb-2"
+                  style="
+                    background:rgba(245,158,11,.15);
+                    color:#fbbf24;
+                  "
+                >
+
+                  40–79 / 99
+
+                </div>
+
+                <p class="text-sm text-muted">
+
+                  One or more suspicious signals
+                  require user attention.
+
+                </p>
+
+              </div>
+
+
+
+              <!-- DANGEROUS -->
+
+              <div
+                style="
+                  padding:1.2rem;
+                  border-radius:14px;
+                  background:rgba(239,68,68,0.08);
+                  border:1px solid rgba(239,68,68,0.2);
+                "
+              >
+
+                <div style="font-size:2rem">
+                  🔴
+                </div>
+
+                <h3 style="margin:.5rem 0">
+                  Dangerous
+                </h3>
+
+                <div
+                  class="
+                    badge
+                    badge-danger
+                    mb-2
+                  "
+                >
+
+                  80–99 / 99
+
+                </div>
+
+                <p class="text-sm text-muted">
+
+                  Multiple strong risk signals indicate
+                  a potentially dangerous website.
+
+                </p>
+
+              </div>
+
+
+            </div>
+
+          </div>
+
+
+
+          <!-- ==================================
+               HOW IT WORKS
+          =================================== -->
+
+          <div class="grid-2">
+
+
+            <!-- How it works -->
+
+            <div class="card card-static">
+
+              <h2 class="mb-3">
+
+                How It Works
+
+              </h2>
+
+
+              <div class="timeline">
+
+
+                <div class="timeline-item">
+
+                  <strong>
+
+                    1. Website opens
+
+                  </strong>
+
+                  <p class="text-sm text-muted">
+
+                    CyberAware automatically starts
+                    protection when a webpage loads.
+
+                  </p>
+
+                </div>
+
+
+
+                <div class="timeline-item">
+
+                  <strong>
+
+                    2. URL and page content are analyzed
+
+                  </strong>
+
+                  <p class="text-sm text-muted">
+
+                    The extension examines the URL
+                    and visible webpage signals.
+
+                  </p>
+
+                </div>
+
+
+
+                <div class="timeline-item">
+
+                  <strong>
+
+                    3. Risk engine calculates a score
+
+                  </strong>
+
+                  <p class="text-sm text-muted">
+
+                    Suspicious patterns contribute
+                    to the website's risk score.
+
+                  </p>
+
+                </div>
+
+
+
+                <div class="timeline-item">
+
+                  <strong>
+
+                    4. User receives protection
+
+                  </strong>
+
+                  <p class="text-sm text-muted">
+
+                    Safe pages continue normally while
+                    risky pages display a warning.
+
+                  </p>
+
+                </div>
+
+
+              </div>
+
+            </div>
+
+
+
+            <!-- Installation -->
+
+            <div
+              class="card card-static"
+              id="installation-instructions"
+            >
+
+              <h2 class="mb-3">
+
+                Install CyberAware
+
+              </h2>
+
+
+              <p class="text-sm text-muted mb-4">
+
+                First download the extension ZIP,
+                then load the extracted folder in Chrome.
+
+              </p>
+
+
+              <a
+                href="../assets/downloads/CyberAware_Extension.zip"
+                download="CyberAware_Extension.zip"
+                class="
+                  btn
+                  btn-primary
+                  w-full
+                  mb-4
+                "
+              >
+
+                ⬇️ Download CyberAware ZIP
+
+              </a>
+
+
+              <ol
+                style="padding-left:1.2rem"
+                class="text-sm text-muted"
+              >
+
+                <li style="margin-bottom:.7rem">
+
+                  Download
+
+                  <code class="font-mono">
+                    CyberAware_Extension.zip
+                  </code>
+
+                </li>
+
+
+                <li style="margin-bottom:.7rem">
+
+                  Extract the ZIP file using
+
+                  <strong>
+                    Extract All
+                  </strong>
+
+                  to create the
+
+                  <code class="font-mono">
+                    CyberAware_Extension
+                  </code>
+
+                  folder.
+
+                </li>
+
+
+                <li style="margin-bottom:.7rem">
+
+                  Open Chrome and go to
+
+                  <code class="font-mono">
+                    chrome://extensions
+                  </code>
+
+                </li>
+
+
+                <li style="margin-bottom:.7rem">
+
+                  Enable
+
+                  <strong>
+                    Developer Mode
+                  </strong>.
+
+                </li>
+
+
+                <li style="margin-bottom:.7rem">
+
+                  Click
+
+                  <strong>
+                    Load unpacked
+                  </strong>.
+
+                </li>
+
+
+                <li style="margin-bottom:.7rem">
+
+                  Select the extracted
+
+                  <code class="font-mono">
+                    CyberAware_Extension
+                  </code>
+
+                  folder.
+
+                </li>
+
+
+                <li style="margin-bottom:.7rem">
+
+                  Pin CyberAware
+                  to the Chrome toolbar.
+
+                </li>
+
+
+                <li>
+
+                  Keep Protection ON while browsing.
+
+                </li>
+
+              </ol>
+
+
+              <div
+                class="
+                  alert
+                  alert-success
+                  mt-4
+                "
+              >
+
+                <div>
+
+                  <strong>
+
+                    ✅ Automatic protection
+
+                  </strong>
+
+                  <p class="text-sm text-muted mt-1">
+
+                    You don't need to manually scan
+                    every website. CyberAware automatically
+                    analyzes pages when they load.
+
+                  </p>
+
+                </div>
+
+              </div>
+
+            </div>
+
+
+          </div>
+
+
+
+          <!-- ==================================
+               PRIVACY / SAFETY NOTE
+          =================================== -->
+
+          <div
+            class="card card-static"
+            style="margin-top:2rem"
+          >
+
+            <div class="flex gap-3">
+
+              <div
+                style="
+                  font-size:2rem;
+                  flex-shrink:0;
+                "
+              >
+
+                🔒
+
+              </div>
+
+
+              <div>
+
+                <h3 style="margin:0 0 .4rem">
+
+                  Stay Protected
+
+                </h3>
+
+
+                <p class="text-sm text-muted">
+
+                  Never enter passwords, OTPs, banking
+                  information or payment details into a website
+                  that CyberAware identifies as suspicious
+                  or dangerous.
+
+                </p>
+
+              </div>
+
+            </div>
+
+          </div>
+
+
+        `;
+
+        // ==========================================
+        // BUTTON EVENTS
+        // ==========================================
+
+        // SAFE
+
+        document.getElementById("btn-safe").onclick = () => {
+          mode = "safe";
+
+          render();
+        };
+
+        // SUSPICIOUS
+
+        document.getElementById("btn-suspicious").onclick = () => {
+          mode = "suspicious";
+
+          render();
+        };
+
+        // DANGEROUS
+
+        document.getElementById("btn-danger").onclick = () => {
+          mode = "danger";
+
+          render();
+        };
+
+        // ==========================================
+        // DOWNLOAD + OPEN INSTALLATION GUIDE
+        // ==========================================
+
+        document.getElementById("install-btn").onclick = () => {
+          // ========================================
+          // DOWNLOAD ZIP
+          // ========================================
+
+          const downloadLink = document.createElement("a");
+
+          downloadLink.href = "../assets/downloads/CyberAware_Extension.zip";
+
+          downloadLink.download = "CyberAware_Extension.zip";
+
+          document.body.appendChild(downloadLink);
+
+          downloadLink.click();
+
+          downloadLink.remove();
+
+          // ========================================
+          // OPEN INSTALLATION GUIDE
+          // ========================================
+
+          const panel = document.getElementById("cyberaware-installation");
+
+          if (!panel) {
+            return;
+          }
+
+          panel.style.display = "block";
+
+          // Scroll to guide
+
+          panel.scrollIntoView({
+            behavior: "smooth",
+
+            block: "center",
+          });
+
+          // Highlight guide
+
+          panel.style.transition = "box-shadow 0.3s ease";
+
+          panel.style.boxShadow = "0 0 0 3px rgba(59,130,246,.35)";
+
+          setTimeout(() => {
+            panel.style.boxShadow = "";
+          }, 2000);
+
+          // Toast message
+
+          App.toast(
+            "CyberAware ZIP downloaded. Extract it and follow the installation steps below.",
+
+            "success",
+          );
+        };
+
+        // ==========================================
+        // CLOSE INSTALLATION GUIDE
+        // ==========================================
+
+        document.getElementById("close-install").onclick = () => {
+          const panel = document.getElementById("cyberaware-installation");
+
+          if (panel) {
+            panel.style.display = "none";
+          }
+        };
+
+        // ==========================================
+        // USER CONFIRMS INSTALLATION
+        // ==========================================
+
+        document.getElementById("installation-done").onclick = () => {
+          const panel = document.getElementById("cyberaware-installation");
+
+          const installButton = document.getElementById("install-btn");
+
+          if (panel) {
+            panel.style.display = "none";
+          }
+
+          if (installButton) {
+            installButton.textContent = "✓ Installation Steps Completed";
+
+            installButton.classList.remove("btn-primary");
+
+            installButton.classList.add("btn-success");
+          }
+
+          App.toast(
+            "Installation steps marked as completed. Verify that CyberAware is enabled in Chrome.",
+
+            "success",
+          );
+        };
+      }
+
+      // ==========================================
+      // SAFE SCREEN
+      // ==========================================
+
+      function safeScreen() {
+        return `
+
+          <div class="alert alert-success">
+
+            <div>
+
+              <strong>
+
+                🟢 CyberAware · Safe Website
+
+              </strong>
+
+
+              <p class="text-sm text-muted mt-1">
+
+                No significant suspicious activity detected.
+
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <h3 style="margin:1rem 0 .5rem">
+
+            Microsoft Careers
+
+          </h3>
+
+
+          <p class="text-sm text-muted mb-3">
+
+            Explore internship opportunities through
+            the official career portal.
+
+          </p>
+
+
+          <div
+            class="skeleton"
+            style="
+              height:12px;
+              width:80%;
+              margin-bottom:.5rem
+            "
+          ></div>
+
+
+          <div
+            class="skeleton"
+            style="
+              height:12px;
+              width:60%;
+              margin-bottom:.5rem
+            "
+          ></div>
+
+
+          <div
+            class="skeleton"
+            style="
+              height:80px;
+              width:100%;
+              margin-top:1rem;
+              border-radius:12px
+            "
+          ></div>
+
+
+          <div
+            class="
+              flex
+              justify-between
+              items-center
+              mt-4
+            "
+          >
+
+            <span class="badge badge-success">
+
+              Protected by CyberAware
+
+            </span>
+
+
+            <span class="text-xs text-muted">
+
+              Risk 12/99
+
+            </span>
+
+          </div>
+
+        `;
+      }
+
+      // ==========================================
+      // SUSPICIOUS SCREEN
+      // ==========================================
+
+      function suspiciousScreen() {
+        return `
+
+          <div
+            class="alert"
+            style="
+              background:rgba(245,158,11,.12);
+              border:1px solid rgba(245,158,11,.3);
+              color:#fbbf24;
+            "
+          >
+
+            <div>
+
+              <strong>
+
+                🟠 CyberAware · Suspicious Website
+
+              </strong>
+
+
+              <p
+                class="text-sm mt-1"
+                style="color:#cbd5e1"
+              >
+
+                Suspicious verification signals were detected.
+
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <h3 style="margin:1rem 0 .5rem">
+
+            Account Verification
+
+          </h3>
+
+
+          <p class="text-sm text-muted mb-2">
+
+            Please verify your account immediately.
+
+          </p>
+
+
+          <div
+            style="
+              padding:12px;
+              border:1px solid rgba(245,158,11,.3);
+              border-radius:10px;
+              margin-top:1rem;
+            "
+          >
+
+            <div class="text-sm">
+
+              ⚠️ Password verification requested
+
+            </div>
+
+
+            <div
+              class="text-sm"
+              style="margin-top:6px"
+            >
+
+              ⚠️ Urgent verification language detected
+
+            </div>
+
+          </div>
+
+
+          <div
+            class="
+              flex
+              justify-between
+              items-center
+              mt-4
+            "
+          >
+
+            <span
+              class="badge"
+              style="
+                background:rgba(245,158,11,.15);
+                color:#fbbf24;
+              "
+            >
+
+              Suspicious
+
+            </span>
+
+
+            <span class="text-xs text-muted">
+
+              Risk 55/99
+
+            </span>
+
+          </div>
+
+        `;
+      }
+
+      // ==========================================
+      // DANGEROUS SCREEN
+      // ==========================================
+
+      function dangerScreen() {
+        return `
+
+          <div
+            style="
+              position:absolute;
+              inset:0;
+              background:rgba(15,23,42,.78);
+              backdrop-filter:blur(5px);
+              display:flex;
+              align-items:center;
+              justify-content:center;
+              padding:1rem;
+              z-index:2;
+            "
+          >
+
+            <div
+              class="card card-static"
+              style="
+                border-color:var(--danger);
+                max-width:320px;
+                text-align:center;
+                padding:1.35rem;
+              "
+            >
+
+              <div style="font-size:2.5rem">
+
+                🚨
+
+              </div>
+
+
+              <h3
+                style="
+                  color:var(--danger);
+                  margin:.5rem 0;
+                "
+              >
+
+                Dangerous Website
+
+              </h3>
+
+
+              <p class="text-sm text-muted mb-3">
+
+                Multiple phishing signals were detected.
+                Do not enter personal or financial information.
+
+              </p>
+
+
+              <div
+                class="
+                  badge
+                  badge-danger
+                  mb-3
+                "
+              >
+
+                Risk 94/99
+
+              </div>
+
+
+              <div
+                class="
+                  flex
+                  flex-col
+                  gap-2
+                "
+              >
+
+                <button
+                  class="
+                    btn
+                    btn-danger
+                    btn-sm
+                  "
+                  id="demo-leave"
+                >
+
+                  Leave this site
+
+                </button>
+
+
+                <button
+                  class="
+                    btn
+                    btn-secondary
+                    btn-sm
+                  "
+                  id="demo-proceed"
+                >
+
+                  Proceed anyway
+
+                </button>
+
+              </div>
+
+            </div>
+
+          </div>
+
+
+          <h3>
+
+            Microsoft Internship Onboarding
+
+          </h3>
+
+
+          <p class="text-sm text-muted">
+
+            Pay ₹2,499 to unlock stipend portal...
+
+          </p>
+
+
+          <div
+            class="skeleton"
+            style="
+              height:100px;
+              margin-top:1rem;
+              border-radius:12px;
+            "
+          ></div>
+
+        `;
+      }
+
+      // ==========================================
+      // INITIAL RENDER
+      // ==========================================
+
+      render();
+    </script>
+  </body>
+</html>

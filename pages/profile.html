@@ -1,0 +1,1706 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Profile - CyberAware</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="../css/styles.css" />
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  </head>
+
+  <body class="bg-gray-50 text-gray-900">
+    <!-- =========================================================
+         LOADER
+    ========================================================== -->
+
+    <div
+      id="page-loader"
+      class="fixed inset-0 bg-white z-[9999] flex items-center justify-center"
+    >
+      <div class="text-center">
+        <div
+          class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"
+        ></div>
+
+        <p class="mt-4 text-gray-600">Loading profile...</p>
+      </div>
+    </div>
+
+    <!-- =========================================================
+         APP
+    ========================================================== -->
+
+    <div id="app-root">
+      <!-- =====================================================
+           NAVBAR
+      ====================================================== -->
+
+      <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="flex justify-between items-center h-16">
+            <a href="dashboard.html" class="text-2xl font-bold text-blue-600">
+              CyberAware
+            </a>
+
+            <div class="flex items-center gap-4">
+              <a
+                href="dashboard.html"
+                class="text-gray-600 hover:text-blue-600"
+              >
+                Dashboard
+              </a>
+
+              <a href="learning.html" class="text-gray-600 hover:text-blue-600">
+                Learning
+              </a>
+
+              <a href="profile.html" class="text-blue-600 font-semibold">
+                Profile
+              </a>
+
+              <button
+                id="logout-btn"
+                class="px-4 py-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <!-- =====================================================
+           MAIN
+      ====================================================== -->
+
+      <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- =================================================
+             PROFILE HEADER
+        ================================================== -->
+
+        <section class="bg-white rounded-2xl shadow-sm border p-6 mb-8">
+          <div
+            class="flex flex-col md:flex-row items-center md:items-start gap-6"
+          >
+            <!-- Avatar -->
+
+            <div
+              id="profile-avatar"
+              class="w-24 h-24 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-4xl font-bold"
+            >
+              U
+            </div>
+
+            <!-- Details -->
+
+            <div class="flex-1 text-center md:text-left">
+              <h1 id="profile-name" class="text-3xl font-bold">User</h1>
+
+              <p id="profile-email" class="text-gray-500 mt-1">
+                user@example.com
+              </p>
+
+              <p id="profile-role" class="text-sm text-blue-600 mt-2">
+                Student
+              </p>
+            </div>
+
+            <!-- Security -->
+
+            <div class="text-center">
+              <p class="text-sm text-gray-500">Security Level</p>
+
+              <p id="security-level" class="text-2xl font-bold text-green-600">
+                Beginner
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- =================================================
+             STATISTICS
+        ================================================== -->
+
+        <section
+          class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8"
+        >
+          <div class="bg-white border rounded-xl p-5 shadow-sm">
+            <p class="text-sm text-gray-500">Learning Progress</p>
+
+            <p id="learning-progress" class="text-3xl font-bold mt-2">0%</p>
+          </div>
+
+          <div class="bg-white border rounded-xl p-5 shadow-sm">
+            <p class="text-sm text-gray-500">Quizzes Completed</p>
+
+            <p id="quiz-count" class="text-3xl font-bold mt-2">0</p>
+          </div>
+
+          <div class="bg-white border rounded-xl p-5 shadow-sm">
+            <p class="text-sm text-gray-500">Badges Earned</p>
+
+            <p id="badge-count" class="text-3xl font-bold mt-2">0</p>
+          </div>
+
+          <div class="bg-white border rounded-xl p-5 shadow-sm">
+            <p class="text-sm text-gray-500">Certificates</p>
+
+            <p id="certificate-count" class="text-3xl font-bold mt-2">0</p>
+          </div>
+        </section>
+
+        <!-- =================================================
+             ACHIEVEMENTS
+        ================================================== -->
+
+        <section class="bg-white border rounded-2xl shadow-sm p-6 mb-8">
+          <div class="mb-6">
+            <h2 class="text-2xl font-bold">Achievements</h2>
+
+            <p class="text-gray-500 mt-1">
+              Complete topic quizzes and earn badges.
+            </p>
+          </div>
+
+          <div
+            id="badges-grid"
+            class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5"
+          ></div>
+        </section>
+
+        <!-- =================================================
+             CERTIFICATES
+        ================================================== -->
+
+        <section class="bg-white border rounded-2xl shadow-sm p-6 mb-8">
+          <h2 class="text-2xl font-bold mb-2">Certificates</h2>
+
+          <p class="text-gray-500 mb-6">
+            Certificates earned through successful learning activities.
+          </p>
+
+          <div
+            id="certificates-list"
+            class="grid grid-cols-1 md:grid-cols-2 gap-5"
+          >
+            <div class="border rounded-xl p-5 text-center text-gray-500">
+              No certificates earned yet.
+            </div>
+          </div>
+        </section>
+
+        <!-- =================================================
+             LEARNING PROGRESS
+        ================================================== -->
+
+        <section class="bg-white border rounded-2xl shadow-sm p-6 mb-8">
+          <h2 class="text-2xl font-bold mb-6">Learning Progress</h2>
+
+          <div id="learning-progress-list" class="space-y-5"></div>
+        </section>
+
+        <!-- =================================================
+             PROFILE INFORMATION
+        ================================================== -->
+
+        <section class="bg-white border rounded-2xl shadow-sm p-6 mb-8">
+          <h2 class="text-2xl font-bold mb-6">Profile Information</h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Display Name
+              </label>
+
+              <input
+                id="display-name-input"
+                type="text"
+                class="w-full border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Email
+              </label>
+
+              <input
+                id="email-input"
+                type="email"
+                disabled
+                class="w-full border rounded-lg px-4 py-3 bg-gray-100 text-gray-500"
+              />
+            </div>
+          </div>
+
+          <button
+            id="save-profile-btn"
+            type="button"
+            class="mt-6 px-5 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Save Changes
+          </button>
+        </section>
+
+        <!-- =================================================
+             ACCOUNT INFORMATION
+        ================================================== -->
+
+        <section class="bg-white border rounded-2xl shadow-sm p-6">
+          <h2 class="text-2xl font-bold mb-6">Account Information</h2>
+
+          <div class="space-y-4">
+            <div class="flex justify-between border-b pb-3">
+              <span class="text-gray-500"> Account Status </span>
+
+              <span id="account-status" class="font-semibold text-green-600">
+                Active
+              </span>
+            </div>
+
+            <div class="flex justify-between border-b pb-3">
+              <span class="text-gray-500"> Email Verification </span>
+
+              <span id="email-verification" class="font-semibold">
+                Verified
+              </span>
+            </div>
+
+            <div class="flex justify-between">
+              <span class="text-gray-500"> User ID </span>
+
+              <span id="user-id" class="font-mono text-sm text-gray-600">
+                -
+              </span>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- =========================================================
+         BADGE DETAILS MODAL
+    ========================================================== -->
+
+    <div
+      id="badge-modal"
+      class="fixed inset-0 bg-black/60 z-[9998] hidden items-center justify-center p-4"
+    >
+      <div
+        class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
+      >
+        <div
+          class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 text-center relative"
+        >
+          <button
+            id="close-badge-modal"
+            type="button"
+            class="absolute right-4 top-4 text-white text-xl hover:bg-white/20 rounded-full w-8 h-8"
+          >
+            ×
+          </button>
+
+          <div id="modal-badge-icon" class="text-6xl mb-3">🏆</div>
+
+          <h2 id="modal-badge-name" class="text-2xl font-bold">Badge</h2>
+        </div>
+
+        <div class="p-6">
+          <div id="modal-badge-status" class="text-center mb-5"></div>
+
+          <div class="bg-gray-50 rounded-xl p-4 mb-4">
+            <p class="text-sm text-gray-500">Topic</p>
+
+            <p id="modal-badge-topic" class="font-semibold text-lg mt-1">-</p>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4 mb-5">
+            <div class="bg-blue-50 rounded-xl p-4 text-center">
+              <p class="text-sm text-gray-500">Best Score</p>
+
+              <p
+                id="modal-badge-score"
+                class="text-2xl font-bold text-blue-600 mt-1"
+              >
+                0%
+              </p>
+            </div>
+
+            <div class="bg-green-50 rounded-xl p-4 text-center">
+              <p class="text-sm text-gray-500">Required</p>
+
+              <p
+                id="modal-badge-required"
+                class="text-2xl font-bold text-green-600 mt-1"
+              >
+                80%
+              </p>
+            </div>
+          </div>
+
+          <div class="mb-5">
+            <p class="text-sm font-medium text-gray-500 mb-1">Description</p>
+
+            <p
+              id="modal-badge-description"
+              class="text-gray-700 leading-relaxed"
+            >
+              -
+            </p>
+          </div>
+
+          <div id="modal-badge-action"></div>
+
+          <button
+            id="modal-close-button"
+            type="button"
+            class="w-full mt-4 px-5 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================================================
+         TOAST
+    ========================================================== -->
+
+    <div id="toast" class="fixed bottom-5 right-5 hidden z-[10000]"></div>
+
+    <!-- =========================================================
+         PROJECT JS
+    ========================================================== -->
+
+    <script src="../js/data.js"></script>
+    <script src="../js/app.js"></script>
+    <script src="../js/components.js"></script>
+    <script src="../js/firebase-config.js"></script>
+
+    <script>
+      /* =========================================================
+         GLOBAL VARIABLES
+      ========================================================= */
+
+      let currentUser = null;
+      let currentStudent = null;
+      let currentTopicBestScores = {};
+      let renderedBadges = [];
+
+      /* =========================================================
+         WAIT FOR FIREBASE
+      ========================================================= */
+
+      function waitForFirebase() {
+        return new Promise(function (resolve, reject) {
+          let attempts = 0;
+
+          const interval = setInterval(function () {
+            attempts++;
+
+            if (window.firebaseReady) {
+              clearInterval(interval);
+
+              window.firebaseReady
+                .then(function () {
+                  resolve();
+                })
+                .catch(function (error) {
+                  reject(error);
+                });
+
+              return;
+            }
+
+            if (attempts > 100) {
+              clearInterval(interval);
+
+              reject(new Error("Firebase initialization timeout"));
+            }
+          }, 100);
+        });
+      }
+
+      /* =========================================================
+         BADGE -> QUIZ MAP
+      ========================================================== */
+
+      function getBadgeQuizId(badge) {
+        if (!badge) {
+          return null;
+        }
+
+        /*
+         * If badge already contains quizId,
+         * use that first.
+         */
+
+        if (badge.quizId) {
+          return String(badge.quizId);
+        }
+
+        const badgeQuizMap = {
+          news: "fake-news",
+
+          phish: "phishing",
+
+          internship: "internship",
+
+          scholarship: "scholarship",
+
+          browser: "browsing",
+
+          deepfake: "deepfake",
+
+          community: "social",
+        };
+
+        return badgeQuizMap[badge.id] || null;
+      }
+
+      /* =========================================================
+         REQUIRED SCORE
+      ========================================================== */
+
+      function getRequiredScore(badge) {
+        if (!badge) {
+          return 80;
+        }
+
+        if (badge.requiredScore !== undefined) {
+          return Number(badge.requiredScore);
+        }
+
+        const quizId = getBadgeQuizId(badge);
+
+        const quiz =
+          quizId && window.AppData && AppData.quizzes
+            ? AppData.quizzes[quizId]
+            : null;
+
+        if (quiz) {
+          if (quiz.requiredScore !== undefined) {
+            return Number(quiz.requiredScore);
+          }
+
+          if (quiz.passPercentage !== undefined) {
+            return Number(quiz.passPercentage);
+          }
+
+          if (quiz.requiredPercentage !== undefined) {
+            return Number(quiz.requiredPercentage);
+          }
+
+          if (quiz.passingPercentage !== undefined) {
+            return Number(quiz.passingPercentage);
+          }
+
+          if (quiz.passingScore !== undefined) {
+            return Number(quiz.passingScore);
+          }
+        }
+
+        if (badge.id === "phish") {
+          return 90;
+        }
+
+        return 80;
+      }
+
+      /* =========================================================
+         LOAD BEST QUIZ SCORES
+      ========================================================== */
+
+      async function loadTopicBestScores(db, uid) {
+        const topicBestScores = {};
+
+        const snapshot = await db
+          .collection("users")
+          .doc(uid)
+          .collection("quizAttempts")
+          .get();
+
+        snapshot.forEach(function (doc) {
+          const attempt = doc.data() || {};
+
+          const quizId = String(attempt.quizId || "").trim();
+
+          const score = Number(attempt.score);
+
+          if (!quizId || !Number.isFinite(score)) {
+            return;
+          }
+
+          if (!Object.prototype.hasOwnProperty.call(topicBestScores, quizId)) {
+            topicBestScores[quizId] = score;
+          } else {
+            topicBestScores[quizId] = Math.max(topicBestScores[quizId], score);
+          }
+        });
+
+        return topicBestScores;
+      }
+
+      /* =========================================================
+         QUIZ TITLE
+      ========================================================== */
+
+      function getQuizTitle(quizId) {
+        if (!quizId || !window.AppData || !AppData.quizzes) {
+          return "Quiz";
+        }
+
+        const quiz = AppData.quizzes[quizId];
+
+        if (!quiz) {
+          return "Quiz";
+        }
+
+        return quiz.title || quizId;
+      }
+
+      /* =========================================================
+         BADGE STATUS
+      ========================================================== */
+
+      function calculateBadgeStatus(badge, topicBestScores) {
+        const quizId = getBadgeQuizId(badge);
+
+        const requiredScore = getRequiredScore(badge);
+
+        let topicScore = 0;
+
+        if (
+          quizId &&
+          Object.prototype.hasOwnProperty.call(topicBestScores, quizId)
+        ) {
+          topicScore = Number(topicBestScores[quizId]);
+        }
+
+        let earned = false;
+
+        if (quizId) {
+          earned = topicScore >= requiredScore;
+        } else {
+          earned = badge.earned === true;
+        }
+
+        return {
+          ...badge,
+
+          earned: earned,
+
+          quizId: quizId,
+
+          topicScore: topicScore,
+
+          requiredScore: requiredScore,
+        };
+      }
+
+      /* =========================================================
+         INITIALIZE PROFILE
+      ========================================================== */
+
+      async function initializeProfile() {
+        try {
+          await waitForFirebase();
+
+          const auth = firebase.auth();
+
+          const db = firebase.firestore();
+
+          auth.onAuthStateChanged(async function (user) {
+            if (!user) {
+              window.location.href = "login.html";
+
+              return;
+            }
+
+            currentUser = user;
+
+            try {
+              await user.reload();
+            } catch (error) {
+              console.warn("User reload failed:", error);
+            }
+
+            /*
+             * Reload user after update.
+             */
+
+            currentUser = firebase.auth().currentUser;
+
+            if (!currentUser.emailVerified) {
+              showToast("Please verify your email first.", "error");
+
+              window.location.href = "login.html";
+
+              return;
+            }
+
+            try {
+              const userDoc = await db
+                .collection("users")
+                .doc(currentUser.uid)
+                .get();
+
+              if (!userDoc.exists) {
+                showToast("Profile information not found.", "error");
+
+                hideLoader();
+
+                return;
+              }
+
+              const data = userDoc.data() || {};
+
+              /*
+               * Firebase Firestore is the
+               * main source for profile data.
+               */
+
+              currentStudent = {
+                ...data,
+
+                uid: currentUser.uid,
+
+                email: data.email || currentUser.email,
+
+                name:
+                  data.name ||
+                  data.displayName ||
+                  currentUser.displayName ||
+                  "Student",
+
+                role: data.role || "student",
+              };
+
+              currentTopicBestScores = await loadTopicBestScores(
+                db,
+                currentUser.uid,
+              );
+
+              renderProfile(
+                currentStudent,
+                currentUser,
+                db,
+                currentTopicBestScores,
+              );
+
+              hideLoader();
+            } catch (error) {
+              console.error("Profile loading error:", error);
+
+              showToast("Failed to load profile.", "error");
+
+              hideLoader();
+            }
+          });
+        } catch (error) {
+          console.error("Firebase error:", error);
+
+          showToast("Firebase initialization failed.", "error");
+
+          hideLoader();
+        }
+      }
+
+      /* =========================================================
+         HIDE LOADER
+      ========================================================== */
+
+      function hideLoader() {
+        const loader = document.getElementById("page-loader");
+
+        if (loader) {
+          loader.style.display = "none";
+        }
+      }
+
+      /* =========================================================
+         RENDER PROFILE
+      ========================================================== */
+
+      function renderProfile(s, user, db, topicBestScores) {
+        /* -------------------------------------------------------
+           BASIC DETAILS
+        ------------------------------------------------------- */
+
+        const name = s.name || s.displayName || user.displayName || "Student";
+
+        const email = s.email || user.email || "";
+
+        document.getElementById("profile-name").textContent = name;
+
+        document.getElementById("profile-email").textContent = email;
+
+        document.getElementById("profile-role").textContent =
+          s.role === "admin" ? "Administrator" : "Student";
+
+        document.getElementById("display-name-input").value = name;
+
+        document.getElementById("email-input").value = email;
+
+        document.getElementById("user-id").textContent = user.uid;
+
+        /* -------------------------------------------------------
+           AVATAR
+        ------------------------------------------------------- */
+
+        document.getElementById("profile-avatar").textContent =
+          name.trim().charAt(0).toUpperCase() || "U";
+
+        /* -------------------------------------------------------
+           EMAIL VERIFICATION
+        ------------------------------------------------------- */
+
+        const verification = document.getElementById("email-verification");
+
+        if (user.emailVerified) {
+          verification.textContent = "Verified";
+
+          verification.className = "font-semibold text-green-600";
+        } else {
+          verification.textContent = "Not Verified";
+
+          verification.className = "font-semibold text-red-600";
+        }
+
+        /* -------------------------------------------------------
+           BADGES
+        ------------------------------------------------------- */
+
+        const badgeList = Array.isArray(window.AppData?.badges)
+          ? AppData.badges
+          : [];
+
+        const processedBadges = badgeList.map(function (badge) {
+          return calculateBadgeStatus(badge, topicBestScores);
+        });
+
+        renderedBadges = processedBadges;
+
+        window.renderedBadges = processedBadges;
+
+        const earnedBadges = processedBadges.filter(function (badge) {
+          return badge.earned;
+        });
+
+        document.getElementById("badge-count").textContent =
+          earnedBadges.length;
+
+        renderBadges(processedBadges);
+
+        /* -------------------------------------------------------
+           QUIZ COUNT
+        ------------------------------------------------------- */
+
+        document.getElementById("quiz-count").textContent = Object.keys(
+          topicBestScores || {},
+        ).length;
+
+        /* -------------------------------------------------------
+           LEARNING PROGRESS
+        ------------------------------------------------------- */
+
+        const modules = Array.isArray(window.AppData?.learningModules)
+          ? AppData.learningModules
+          : [];
+
+        const totalTopics = modules.length;
+
+        const completedTopics = Object.keys(topicBestScores || {}).filter(
+          function (quizId) {
+            return Number(topicBestScores[quizId]) >= 80;
+          },
+        ).length;
+
+        const progress =
+          totalTopics > 0
+            ? Math.round((completedTopics / totalTopics) * 100)
+            : 0;
+
+        document.getElementById("learning-progress").textContent =
+          progress + "%";
+
+        /* -------------------------------------------------------
+           SECURITY LEVEL
+        ------------------------------------------------------- */
+
+        let level = "Beginner";
+
+        if (earnedBadges.length >= 5) {
+          level = "Advanced";
+        } else if (earnedBadges.length >= 3) {
+          level = "Intermediate";
+        }
+
+        document.getElementById("security-level").textContent = level;
+
+        /* -------------------------------------------------------
+           CERTIFICATES
+        ------------------------------------------------------- */
+
+        renderCertificates(processedBadges);
+
+        /* -------------------------------------------------------
+           LEARNING PROGRESS
+        ------------------------------------------------------- */
+
+        renderLearningProgress(topicBestScores);
+      }
+
+      /* =========================================================
+         RENDER BADGES
+      ========================================================== */
+
+      function renderBadges(badges) {
+        const container = document.getElementById("badges-grid");
+
+        if (!container) {
+          return;
+        }
+
+        if (!badges.length) {
+          container.innerHTML = `
+
+            <div class="col-span-full text-center py-10 text-gray-500">
+
+              No badges available yet.
+
+            </div>
+
+          `;
+
+          return;
+        }
+
+        container.innerHTML = badges
+          .map(function (badge, index) {
+            const earned = badge.earned === true;
+
+            const icon = badge.icon || "🏆";
+
+            const name = badge.name || "Badge";
+
+            const description =
+              badge.desc ||
+              badge.description ||
+              "Complete the required activity to earn this badge.";
+
+            const score = Number(badge.topicScore || 0);
+
+            const required = Number(badge.requiredScore || 80);
+
+            return `
+
+                  <div
+                    class="
+                      badge-card
+                      h-full
+                      border
+                      rounded-2xl
+                      p-5
+                      transition
+                      duration-200
+                      cursor-pointer
+                      hover:-translate-y-1
+                      hover:shadow-lg
+                      ${
+                        earned
+                          ? "bg-white border-green-200 hover:border-green-400"
+                          : "bg-gray-50 border-gray-200 hover:border-blue-300"
+                      }
+                    "
+                    data-badge-index="${index}"
+                    role="button"
+                    tabindex="0"
+                  >
+
+                    <div
+                      class="flex items-start justify-between gap-3"
+                    >
+
+                      <div
+                        class="
+                          w-16
+                          h-16
+                          rounded-2xl
+                          flex
+                          items-center
+                          justify-center
+                          text-4xl
+                          ${
+                            earned
+                              ? "bg-green-100"
+                              : "bg-gray-200 grayscale opacity-60"
+                          }
+                        "
+                      >
+                        ${icon}
+                      </div>
+
+
+                      <div>
+
+                        ${
+                          earned
+                            ? `
+                              <span
+                                class="
+                                  inline-flex
+                                  px-2.5
+                                  py-1
+                                  rounded-full
+                                  text-xs
+                                  font-semibold
+                                  bg-green-100
+                                  text-green-700
+                                "
+                              >
+                                ✓ Earned
+                              </span>
+                            `
+                            : `
+                              <span
+                                class="
+                                  inline-flex
+                                  px-2.5
+                                  py-1
+                                  rounded-full
+                                  text-xs
+                                  font-semibold
+                                  bg-gray-200
+                                  text-gray-600
+                                "
+                              >
+                                🔒 Locked
+                              </span>
+                            `
+                        }
+
+                      </div>
+
+                    </div>
+
+
+                    <h3
+                      class="
+                        text-lg
+                        font-bold
+                        mt-4
+                        ${earned ? "text-gray-900" : "text-gray-500"}
+                      "
+                    >
+                      ${name}
+                    </h3>
+
+
+                    <p
+                      class="
+                        text-sm
+                        mt-1
+                        ${earned ? "text-gray-500" : "text-gray-400"}
+                      "
+                    >
+                      ${description}
+                    </p>
+
+
+                    <div
+                      class="
+                        mt-4
+                        pt-4
+                        border-t
+                      "
+                    >
+
+                      <div
+                        class="
+                          flex
+                          justify-between
+                          text-xs
+                          text-gray-500
+                        "
+                      >
+
+                        <span>
+                          Best Score
+                        </span>
+
+                        <span class="font-semibold">
+                          ${score}%
+                        </span>
+
+                      </div>
+
+
+                      <div
+                        class="
+                          flex
+                          justify-between
+                          text-xs
+                          text-gray-500
+                          mt-2
+                        "
+                      >
+
+                        <span>
+                          Required
+                        </span>
+
+                        <span class="font-semibold">
+                          ${required}%
+                        </span>
+
+                      </div>
+
+                    </div>
+
+
+                    <div
+                      class="
+                        mt-4
+                        text-xs
+                        text-blue-600
+                        font-medium
+                      "
+                    >
+                      Click to view details →
+                    </div>
+
+                  </div>
+
+                `;
+          })
+          .join("");
+
+        const cards = container.querySelectorAll(".badge-card");
+
+        cards.forEach(function (card) {
+          card.addEventListener("click", function () {
+            const index = Number(card.dataset.badgeIndex);
+
+            openBadgeModal(index);
+          });
+
+          card.addEventListener("keydown", function (event) {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+
+              const index = Number(card.dataset.badgeIndex);
+
+              openBadgeModal(index);
+            }
+          });
+        });
+      }
+
+      /* =========================================================
+         OPEN BADGE MODAL
+      ========================================================== */
+
+      function openBadgeModal(index) {
+        const badge = renderedBadges[index];
+
+        if (!badge) {
+          console.error("Badge not found:", index);
+
+          return;
+        }
+
+        const modal = document.getElementById("badge-modal");
+
+        const icon = document.getElementById("modal-badge-icon");
+
+        const name = document.getElementById("modal-badge-name");
+
+        const status = document.getElementById("modal-badge-status");
+
+        const topic = document.getElementById("modal-badge-topic");
+
+        const score = document.getElementById("modal-badge-score");
+
+        const required = document.getElementById("modal-badge-required");
+
+        const description = document.getElementById("modal-badge-description");
+
+        const action = document.getElementById("modal-badge-action");
+
+        const quizId = badge.quizId;
+
+        const topicTitle = quizId ? getQuizTitle(quizId) : "Cyber Safety";
+
+        icon.textContent = badge.icon || "🏆";
+
+        name.textContent = badge.name || "Badge";
+
+        topic.textContent = topicTitle;
+
+        score.textContent = Number(badge.topicScore || 0) + "%";
+
+        required.textContent = Number(badge.requiredScore || 80) + "%";
+
+        description.textContent =
+          badge.desc ||
+          badge.description ||
+          "Complete the required activity to earn this badge.";
+
+        if (badge.earned) {
+          status.innerHTML = `
+
+            <div
+              class="
+                inline-flex
+                items-center
+                gap-2
+                px-4
+                py-2
+                rounded-full
+                bg-green-100
+                text-green-700
+                font-semibold
+              "
+            >
+              ✓ Badge Earned
+            </div>
+
+          `;
+
+          action.innerHTML = `
+
+            <div
+              class="
+                bg-green-50
+                border
+                border-green-200
+                rounded-xl
+                p-4
+                text-center
+                text-green-700
+                text-sm
+              "
+            >
+              🎉 Congratulations!
+              You have unlocked this badge.
+            </div>
+
+          `;
+        } else {
+          status.innerHTML = `
+
+            <div
+              class="
+                inline-flex
+                items-center
+                gap-2
+                px-4
+                py-2
+                rounded-full
+                bg-gray-100
+                text-gray-600
+                font-semibold
+              "
+            >
+              🔒 Badge Locked
+            </div>
+
+          `;
+
+          action.innerHTML = `
+
+            <div
+              class="
+                bg-blue-50
+                border
+                border-blue-200
+                rounded-xl
+                p-4
+                text-center
+                text-blue-700
+                text-sm
+              "
+            >
+              Score at least
+              <strong>
+                ${badge.requiredScore}%
+              </strong>
+              in this topic quiz
+              to unlock this badge.
+            </div>
+
+          `;
+        }
+
+        modal.classList.remove("hidden");
+
+        modal.classList.add("flex");
+
+        document.body.style.overflow = "hidden";
+      }
+
+      /* =========================================================
+         CLOSE BADGE MODAL
+      ========================================================== */
+
+      function closeBadgeModal() {
+        const modal = document.getElementById("badge-modal");
+
+        if (!modal) {
+          return;
+        }
+
+        modal.classList.add("hidden");
+
+        modal.classList.remove("flex");
+
+        document.body.style.overflow = "";
+      }
+
+      /* =========================================================
+         CERTIFICATES
+      ========================================================== */
+
+      function renderCertificates(badges) {
+        const container = document.getElementById("certificates-list");
+
+        const earned = badges.filter(function (badge) {
+          return badge.earned;
+        });
+
+        document.getElementById("certificate-count").textContent =
+          earned.length;
+
+        if (!earned.length) {
+          container.innerHTML = `
+
+            <div
+              class="
+                border
+                rounded-xl
+                p-6
+                text-center
+                text-gray-500
+                md:col-span-2
+              "
+            >
+              No certificates earned yet.
+            </div>
+
+          `;
+
+          return;
+        }
+
+        container.innerHTML = earned
+          .map(function (badge) {
+            const certificateTitle =
+              window.AppData?.quizzes?.[badge.quizId]?.certificateTitle ||
+              `${badge.name} Certificate`;
+
+            return `
+
+                  <div
+                    class="
+                      border
+                      border-green-200
+                      bg-green-50
+                      rounded-xl
+                      p-5
+                    "
+                  >
+
+                    <div
+                      class="flex items-center gap-4"
+                    >
+
+                      <div
+                        class="
+                          w-14
+                          h-14
+                          rounded-xl
+                          bg-white
+                          flex
+                          items-center
+                          justify-center
+                          text-3xl
+                        "
+                      >
+                        ${badge.icon || "🏆"}
+                      </div>
+
+
+                      <div>
+
+                        <h3
+                          class="font-bold text-lg"
+                        >
+                          ${certificateTitle}
+                        </h3>
+
+                        <p
+                          class="text-sm text-gray-600 mt-1"
+                        >
+                          ${badge.name}
+                        </p>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                `;
+          })
+          .join("");
+      }
+
+      /* =========================================================
+         LEARNING PROGRESS
+      ========================================================== */
+
+      function renderLearningProgress(topicBestScores) {
+        const container = document.getElementById("learning-progress-list");
+
+        const modules = Array.isArray(window.AppData?.learningModules)
+          ? AppData.learningModules
+          : [];
+
+        if (!modules.length) {
+          container.innerHTML = `
+
+            <p class="text-gray-500">
+              No learning modules available.
+            </p>
+
+          `;
+
+          return;
+        }
+
+        container.innerHTML = modules
+          .map(function (module) {
+            const quizId = module.id;
+
+            const score = Number(topicBestScores?.[quizId] || 0);
+
+            const passingScore = Number(
+              window.AppData?.quizzes?.[quizId]?.passingScore || 80,
+            );
+
+            const completed = score >= passingScore;
+
+            const percentage = Math.min(100, Math.max(0, score));
+
+            return `
+
+                  <div>
+
+                    <div
+                      class="
+                        flex
+                        justify-between
+                        items-center
+                        mb-2
+                      "
+                    >
+
+                      <div>
+
+                        <h3
+                          class="font-semibold"
+                        >
+                          ${module.title || module.name || quizId}
+                        </h3>
+
+
+                        <p
+                          class="text-xs text-gray-500"
+                        >
+                          Best quiz score:
+                          ${score}%
+                        </p>
+
+                      </div>
+
+
+                      <span
+                        class="
+                          text-sm
+                          font-semibold
+                          ${completed ? "text-green-600" : "text-gray-500"}
+                        "
+                      >
+                        ${completed ? "Completed" : score + "%"}
+                      </span>
+
+                    </div>
+
+
+                    <div
+                      class="
+                        w-full
+                        h-3
+                        bg-gray-200
+                        rounded-full
+                        overflow-hidden
+                      "
+                    >
+
+                      <div
+                        class="
+                          h-full
+                          rounded-full
+                          ${completed ? "bg-green-500" : "bg-blue-500"}
+                        "
+                        style="width:${percentage}%"
+                      ></div>
+
+                    </div>
+
+                  </div>
+
+                `;
+          })
+          .join("");
+      }
+
+      /* =========================================================
+         SAVE PROFILE
+      ========================================================== */
+
+      async function saveProfile() {
+        if (!currentUser) {
+          showToast("User is not logged in.", "error");
+
+          return;
+        }
+
+        const input = document.getElementById("display-name-input");
+
+        const newName = input.value.trim();
+
+        if (!newName) {
+          showToast("Please enter a valid name.", "error");
+
+          return;
+        }
+
+        const button = document.getElementById("save-profile-btn");
+
+        button.disabled = true;
+
+        button.textContent = "Saving...";
+
+        try {
+          const db = firebase.firestore();
+
+          /*
+           * STEP 1
+           * Update Firebase Authentication profile.
+           */
+
+          await currentUser.updateProfile({
+            displayName: newName,
+          });
+
+          /*
+           * STEP 2
+           *
+           * IMPORTANT:
+           * Use set() with merge:true.
+           *
+           * This updates the profile fields
+           * without deleting existing fields.
+           */
+
+          await db.collection("users").doc(currentUser.uid).set(
+            {
+              name: newName,
+
+              displayName: newName,
+
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            },
+            {
+              merge: true,
+            },
+          );
+
+          /*
+           * STEP 3
+           * Update local profile data.
+           */
+
+          currentStudent = currentStudent || {};
+
+          currentStudent.name = newName;
+
+          currentStudent.displayName = newName;
+
+          /*
+           * STEP 4
+           * Update page immediately.
+           */
+
+          document.getElementById("profile-name").textContent = newName;
+
+          document.getElementById("display-name-input").value = newName;
+
+          document.getElementById("profile-avatar").textContent = newName
+            .charAt(0)
+            .toUpperCase();
+
+          /*
+           * STEP 5
+           * Show success message.
+           */
+
+          showToast("Profile updated successfully.", "success");
+
+          /*
+           * STEP 6
+           * Reload Firebase user data.
+           */
+
+          try {
+            await currentUser.reload();
+
+            currentUser = firebase.auth().currentUser;
+          } catch (reloadError) {
+            console.warn("User reload after save failed:", reloadError);
+          }
+        } catch (error) {
+          console.error("Save profile error:", error);
+
+          /*
+           * Show the REAL Firebase error.
+           */
+
+          showToast(error.message || "Failed to update profile.", "error");
+        } finally {
+          button.disabled = false;
+
+          button.textContent = "Save Changes";
+        }
+      }
+
+      /* =========================================================
+         TOAST
+      ========================================================== */
+
+      function showToast(message, type) {
+        const toast = document.getElementById("toast");
+
+        toast.className = `
+
+          fixed
+          bottom-5
+          right-5
+          z-[10000]
+          px-5
+          py-3
+          rounded-xl
+          shadow-lg
+          text-white
+          ${type === "error" ? "bg-red-600" : "bg-green-600"}
+
+        `;
+
+        toast.textContent = message;
+
+        toast.classList.remove("hidden");
+
+        setTimeout(function () {
+          toast.classList.add("hidden");
+        }, 3000);
+      }
+
+      /* =========================================================
+         LOGOUT
+      ========================================================== */
+
+      async function logout() {
+        try {
+          await firebase.auth().signOut();
+
+          window.location.href = "login.html";
+        } catch (error) {
+          console.error("Logout error:", error);
+
+          showToast("Logout failed.", "error");
+        }
+      }
+
+      /* =========================================================
+         DOM READY
+      ========================================================== */
+
+      document.addEventListener("DOMContentLoaded", function () {
+        /* SAVE BUTTON */
+
+        const saveButton = document.getElementById("save-profile-btn");
+
+        if (saveButton) {
+          saveButton.addEventListener("click", saveProfile);
+        }
+
+        /* LOGOUT */
+
+        const logoutButton = document.getElementById("logout-btn");
+
+        if (logoutButton) {
+          logoutButton.addEventListener("click", logout);
+        }
+
+        /* MODAL CLOSE */
+
+        const closeButton = document.getElementById("close-badge-modal");
+
+        const modalCloseButton = document.getElementById("modal-close-button");
+
+        if (closeButton) {
+          closeButton.addEventListener("click", closeBadgeModal);
+        }
+
+        if (modalCloseButton) {
+          modalCloseButton.addEventListener("click", closeBadgeModal);
+        }
+
+        /* CLICK OUTSIDE MODAL */
+
+        const modal = document.getElementById("badge-modal");
+
+        if (modal) {
+          modal.addEventListener("click", function (event) {
+            if (event.target === modal) {
+              closeBadgeModal();
+            }
+          });
+        }
+
+        /* ESCAPE KEY */
+
+        document.addEventListener("keydown", function (event) {
+          if (event.key === "Escape") {
+            closeBadgeModal();
+          }
+        });
+      });
+
+      /* =========================================================
+         START APPLICATION
+      ========================================================== */
+
+      initializeProfile();
+    </script>
+  </body>
+</html>

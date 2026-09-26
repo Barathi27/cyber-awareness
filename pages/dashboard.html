@@ -1,0 +1,1775 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Student Dashboard · CyberAware</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Project CSS -->
+    <link rel="stylesheet" href="../css/styles.css" />
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  </head>
+
+  <body>
+    <!-- =========================================
+       APP ROOT
+  ========================================== -->
+
+    <div id="app-root">
+      <div
+        style="
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-direction: column;
+          gap: 12px;
+        "
+      >
+        <div style="font-size: 2rem">🛡️</div>
+
+        <strong>Loading CyberAware...</strong>
+
+        <span class="text-sm text-muted">
+          Loading your Firebase profile...
+        </span>
+      </div>
+    </div>
+
+    <!-- =========================================
+       PROJECT JS
+  ========================================== -->
+
+    <script src="../js/data.js"></script>
+
+    <script src="../js/app.js"></script>
+
+    <script src="../js/components.js"></script>
+
+    <!-- =========================================
+       FIREBASE CONFIG
+  ========================================== -->
+
+    <script src="../js/firebase-config.js"></script>
+
+    <!-- =========================================
+       DASHBOARD SCRIPT
+  ========================================== -->
+
+    <script>
+      console.log("[CyberAware] Firebase Student Dashboard starting...");
+
+      // =====================================================
+      // GLOBAL VARIABLES
+      // =====================================================
+
+      let auth = null;
+
+      let db = null;
+
+      let currentUser = null;
+
+      let studentData = null;
+
+      // =====================================================
+      // ANNOUNCEMENTS
+      // =====================================================
+
+      let announcements = [];
+
+      // =====================================================
+      // WAIT FOR FIREBASE
+      // =====================================================
+
+      async function waitForFirebase() {
+        try {
+          if (window.firebaseReady) {
+            await window.firebaseReady;
+          }
+
+          let attempts = 0;
+
+          while ((!window.firebaseApp || !window.firebase) && attempts < 100) {
+            await new Promise(function (resolve) {
+              setTimeout(resolve, 100);
+            });
+
+            attempts++;
+          }
+
+          if (!window.firebase || !window.firebaseApp) {
+            throw new Error("Firebase was not initialized.");
+          }
+
+          console.log("[CyberAware] Firebase ready.");
+
+          return true;
+        } catch (error) {
+          console.error("[CyberAware] Firebase startup error:", error);
+
+          return false;
+        }
+      }
+
+      // =====================================================
+      // GET FIRESTORE STUDENT DATA
+      // =====================================================
+
+      async function loadStudentData(user) {
+        try {
+          if (!user) {
+            throw new Error("No Firebase user found.");
+          }
+
+          db = firebase.firestore();
+
+          const userRef = db.collection("users").doc(user.uid);
+
+          console.log("[CyberAware] Reading Firestore:", user.uid);
+
+          const snapshot = await userRef.get();
+
+          if (!snapshot.exists) {
+            console.error("[CyberAware] User document not found.");
+
+            throw new Error("Your student profile was not found in Firestore.");
+          }
+
+          // ===============================================
+          // GET FIRESTORE DATA
+          // ===============================================
+
+          studentData = snapshot.data();
+
+          console.log("[CyberAware] Firestore student data:", studentData);
+
+          // ===============================================
+          // DEFAULT VALUES
+          // ===============================================
+
+          studentData.name = studentData.name || user.displayName || "Student";
+
+          studentData.email = studentData.email || user.email || "";
+
+          studentData.awarenessScore = Number(studentData.awarenessScore || 0);
+
+          studentData.modulesCompleted = Number(
+            studentData.modulesCompleted || 0,
+          );
+
+          studentData.quizzesCompleted = Number(
+            studentData.quizzesCompleted || 0,
+          );
+
+          studentData.certificates = Number(studentData.certificates || 0);
+
+          studentData.streak = Number(studentData.streak || 0);
+
+          studentData.securityLevel = studentData.securityLevel || "Beginner";
+
+          if (!Array.isArray(studentData.completedModules)) {
+            studentData.completedModules = [];
+          }
+
+          return true;
+        } catch (error) {
+          console.error("[CyberAware] Failed to load student:", error);
+
+          showError(error.message);
+
+          return false;
+        }
+      }
+
+      // =====================================================
+      // LOAD ANNOUNCEMENTS FROM FIRESTORE
+      // =====================================================
+
+      async function loadAnnouncements() {
+        try {
+          if (!db) {
+            db = firebase.firestore();
+          }
+
+          console.log("[CyberAware] Loading published announcements...");
+
+          const snapshot = await db
+            .collection("announcements")
+            .where("published", "==", true)
+            .get();
+
+          announcements = [];
+
+          snapshot.forEach(function (doc) {
+            announcements.push({
+              id: doc.id,
+              ...doc.data(),
+            });
+          });
+
+          // Newest announcements first
+          announcements.sort(function (a, b) {
+            const dateA =
+              a.createdAt && typeof a.createdAt.toDate === "function"
+                ? a.createdAt.toDate().getTime()
+                : 0;
+
+            const dateB =
+              b.createdAt && typeof b.createdAt.toDate === "function"
+                ? b.createdAt.toDate().getTime()
+                : 0;
+
+            return dateB - dateA;
+          });
+
+          console.log("[CyberAware] Announcements loaded:", announcements);
+
+          return true;
+        } catch (error) {
+          console.error("[CyberAware] Failed to load announcements:", error);
+
+          announcements = [];
+
+          return false;
+        }
+      }
+
+      // =====================================================
+      // ESCAPE HTML
+      // =====================================================
+
+      function escapeHtml(value) {
+        const div = document.createElement("div");
+
+        div.textContent = value == null ? "" : String(value);
+
+        return div.innerHTML;
+      }
+
+      // =====================================================
+      // FORMAT ANNOUNCEMENT DATE
+      // =====================================================
+
+      function formatAnnouncementDate(timestamp) {
+        if (timestamp && typeof timestamp.toDate === "function") {
+          return timestamp.toDate().toLocaleString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+        }
+
+        return "Just now";
+      }
+
+      // =====================================================
+      // RENDER STUDENT ANNOUNCEMENTS
+      // =====================================================
+
+      function renderStudentAnnouncements() {
+        if (!announcements.length) {
+          return `
+            <div
+              class="text-sm text-muted"
+              style="
+                padding:0.75rem;
+                text-align:center;
+              "
+            >
+              No new announcements at the moment.
+            </div>
+          `;
+        }
+
+        return announcements
+          .map(function (announcement) {
+            return `
+              <div
+                class="flex gap-3 items-start"
+                style="
+                  padding:0.85rem;
+                  border:1px solid var(--border);
+                  border-radius:12px;
+                  background:var(--surface);
+                "
+              >
+
+                <div
+                  class="stat-icon"
+                  style="
+                    width:42px;
+                    height:42px;
+                    min-width:42px;
+                    font-size:1.1rem;
+                  "
+                >
+                  📢
+                </div>
+
+                <div style="flex:1;min-width:0;">
+
+                  <strong class="text-sm">
+                    Campus Announcement
+                  </strong>
+
+                  <p
+                    class="text-sm"
+                    style="
+                      margin-top:0.35rem;
+                      line-height:1.5;
+                    "
+                  >
+                    ${escapeHtml(announcement.text || "")}
+                  </p>
+
+                  <div
+                    class="text-xs text-muted"
+                    style="margin-top:0.4rem;"
+                  >
+                    ${formatAnnouncementDate(announcement.createdAt)}
+                  </div>
+
+                </div>
+
+              </div>
+            `;
+          })
+          .join("");
+      }
+
+      // =====================================================
+      // SHOW ERROR
+      // =====================================================
+
+      function showError(message) {
+        document.getElementById("app-root").innerHTML = `
+
+        <div
+          style="
+            min-height:100vh;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            padding:2rem;
+          "
+        >
+
+          <div
+            class="card"
+            style="
+              max-width:520px;
+              width:100%;
+              text-align:center;
+            "
+          >
+
+            <div
+              style="
+                font-size:3rem;
+                margin-bottom:1rem;
+              "
+            >
+              ⚠️
+            </div>
+
+            <h2>
+              Unable to Load Dashboard
+            </h2>
+
+            <p
+              class="text-muted"
+              style="
+                margin-top:0.75rem;
+              "
+            >
+              ${message}
+            </p>
+
+            <button
+              class="btn btn-primary"
+              style="
+                margin-top:1.25rem;
+              "
+              onclick="location.reload()"
+            >
+              Refresh
+            </button>
+
+          </div>
+
+        </div>
+
+      `;
+      }
+
+      // =====================================================
+      // GET SECURITY TIP
+      // =====================================================
+
+      function getSecurityTip() {
+        if (
+          window.AppData &&
+          Array.isArray(AppData.tips) &&
+          AppData.tips.length > 0
+        ) {
+          return AppData.tips[Math.floor(Math.random() * AppData.tips.length)];
+        }
+
+        return "Never share your password or OTP with anyone.";
+      }
+
+      // =====================================================
+      // RENDER DASHBOARD
+      // =====================================================
+
+      function renderDashboard() {
+        console.log("[CyberAware] Rendering dashboard with Firestore data...");
+
+        // ===================================================
+        // LAYOUT
+        // ===================================================
+
+        if (window.Layout && typeof Layout.setBase === "function") {
+          Layout.setBase("");
+        }
+
+        if (window.Layout) {
+          Layout.base = "";
+        }
+
+        const sidebarHTML = Layout.studentSidebar();
+
+        const topbarHTML = Layout.topbar("Student Dashboard");
+
+        const loaderHTML = Layout.loader();
+
+        document.getElementById("app-root").innerHTML = `
+
+        ${loaderHTML}
+
+        <div class="app-shell">
+
+          ${sidebarHTML}
+
+          <div class="main-area">
+
+            ${topbarHTML}
+
+            <main
+              class="page-content"
+              id="page-main"
+            >
+
+              Loading dashboard...
+
+            </main>
+
+          </div>
+
+        </div>
+
+      `;
+
+        // ===================================================
+        // INITIALIZE APP
+        // ===================================================
+
+        try {
+          Layout.renderNotifs();
+        } catch (error) {
+          console.warn("[CyberAware] Notification error:", error);
+        }
+
+        try {
+          App.init();
+        } catch (error) {
+          console.warn("[CyberAware] App init warning:", error);
+        }
+
+        // ===================================================
+        // VARIABLES
+        // ===================================================
+
+        const s = studentData;
+
+        const awarenessScore = Number(s.awarenessScore || 0);
+
+        // ===================================================
+        // UPDATE SIDEBAR AWARENESS SCORE
+        // ===================================================
+
+        const sidebarScore = document.getElementById("sidebar-score");
+
+        const sidebarScoreProgress = document.getElementById(
+          "sidebar-score-progress",
+        );
+
+        if (sidebarScore) {
+          sidebarScore.textContent = awarenessScore;
+        }
+
+        if (sidebarScoreProgress) {
+          sidebarScoreProgress.style.width = awarenessScore + "%";
+        }
+
+        // ===================================================
+        // OTHER STUDENT DATA
+        // ===================================================
+
+        const modulesCompleted = Number(s.modulesCompleted || 0);
+
+        const quizzesCompleted = Number(s.quizzesCompleted || 0);
+
+        const certificates = Number(s.certificates || 0);
+
+        const streak = Number(s.streak || 0);
+
+        const securityLevel = s.securityLevel || "Beginner";
+
+        const completedModules = Array.isArray(s.completedModules)
+          ? s.completedModules
+          : [];
+
+        // ===================================================
+        // MODULE PROGRESS
+        // ===================================================
+
+        let modulesHTML = "";
+
+        if (window.AppData && Array.isArray(AppData.learningModules)) {
+          modulesHTML = AppData.learningModules
+            .slice(0, 5)
+            .map(function (m) {
+              const completed = completedModules.includes(m.id);
+
+              const progress = completed ? 100 : 0;
+
+              return `
+
+                  <div>
+
+                    <div
+                      class="
+                        flex
+                        justify-between
+                        text-sm
+                        mb-1
+                      "
+                    >
+
+                      <span>
+
+                        ${m.icon || "📚"}
+
+                        ${m.title || "Module"}
+
+                      </span>
+
+                      <span
+                        class="text-muted"
+                      >
+
+                        ${progress}%
+
+                      </span>
+
+                    </div>
+
+                    <div class="progress">
+
+                      <div
+                        class="progress-bar"
+                        style="
+                          width:${progress}%
+                        "
+                      ></div>
+
+                    </div>
+
+                  </div>
+
+                `;
+            })
+            .join("");
+        }
+
+        // ===================================================
+        // ACTIVITIES
+        // ===================================================
+
+        let activitiesHTML = `
+
+        <div
+          class="text-sm text-muted"
+        >
+          No recent activity.
+        </div>
+
+      `;
+
+        if (
+          window.AppData &&
+          Array.isArray(AppData.activities) &&
+          AppData.activities.length > 0
+        ) {
+          activitiesHTML = AppData.activities
+            .map(function (a) {
+              return `
+
+                  <div
+                    class="
+                      flex
+                      gap-3
+                      items-center
+                    "
+                    style="
+                      padding-bottom:0.75rem;
+                      border-bottom:
+                      1px solid var(--border);
+                    "
+                  >
+
+                    <div
+                      class="stat-icon"
+                      style="
+                        width:40px;
+                        height:40px;
+                        font-size:1rem;
+                      "
+                    >
+                      ${a.icon || "📌"}
+                    </div>
+
+                    <div
+                      style="flex:1"
+                    >
+
+                      <strong
+                        class="text-sm"
+                      >
+                        ${
+                          a.title ||
+                          a.action ||
+                          a.activity ||
+                          "Activity completed"
+                        }
+                      </strong>
+
+                      <div
+                        class="text-xs text-muted"
+                      >
+                        ${a.detail || a.time || a.date || ""}
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                `;
+            })
+            .join("");
+        }
+
+        // ===================================================
+        // PAGE HTML
+        // ===================================================
+
+        const pageMain = document.getElementById("page-main");
+
+        pageMain.innerHTML = `
+
+        <!-- ======================================
+             HEADER
+        ======================================= -->
+
+        <div
+          class="
+            page-header
+            animate-in
+          "
+        >
+
+          <div
+            class="
+              flex
+              justify-between
+              items-start
+              flex-wrap
+              gap-3
+            "
+          >
+
+            <div>
+
+              <h1>
+
+                Welcome back,
+                ${s.name.split(" ")[0]}
+                👋
+
+              </h1>
+
+              <p>
+
+                ${s.department || "Information Technology"}
+
+                ·
+
+                ${s.year || "3rd Year"}
+
+                ·
+
+                ${s.college || "MVGR College of Engineering"}
+
+              </p>
+
+              <p
+                class="
+                  text-xs
+                  text-muted
+                  mt-1
+                "
+              >
+
+                ${s.email}
+
+              </p>
+
+            </div>
+
+            <span
+              class="
+                badge
+                badge-verified
+              "
+            >
+
+              Security Level:
+              ${securityLevel}
+
+            </span>
+
+          </div>
+
+        </div>
+
+        <!-- ======================================
+             STATS
+        ======================================= -->
+
+        <div
+          class="
+            stats-grid
+            mb-4
+          "
+        >
+
+          <!-- Awareness -->
+
+          <div
+            class="
+              card
+              stat-card
+              animate-in
+            "
+          >
+
+            <div
+              class="
+                flex
+                justify-between
+              "
+            >
+
+              <div class="stat-icon">
+                🎯
+              </div>
+
+              <span
+                class="stat-trend up"
+              >
+                +${awarenessScore}%
+              </span>
+
+            </div>
+
+            <div class="stat-value">
+
+              ${awarenessScore}%
+
+            </div>
+
+            <div class="stat-label">
+
+              Awareness Score
+
+            </div>
+
+            <div
+              class="progress mt-3"
+            >
+
+              <div
+                class="progress-bar"
+                style="
+                  width:${awarenessScore}%
+                "
+              ></div>
+
+            </div>
+
+          </div>
+
+          <!-- Modules -->
+
+          <div
+            class="
+              card
+              stat-card
+              animate-in
+              delay-1
+            "
+          >
+
+            <div class="stat-icon">
+              📚
+            </div>
+
+            <div class="stat-value">
+
+              ${modulesCompleted}/8
+
+            </div>
+
+            <div class="stat-label">
+
+              Modules Completed
+
+            </div>
+
+            <div
+              class="progress mt-3"
+            >
+
+              <div
+                class="progress-bar"
+                style="
+                  width:${Math.min(100, (modulesCompleted / 8) * 100)}%
+                "
+              ></div>
+
+            </div>
+
+          </div>
+
+          <!-- Quizzes -->
+
+          <div
+            class="
+              card
+              stat-card
+              animate-in
+              delay-2
+            "
+          >
+
+            <div class="stat-icon">
+              🏅
+            </div>
+
+            <div class="stat-value">
+
+              ${quizzesCompleted}
+
+            </div>
+
+            <div class="stat-label">
+
+              Quizzes Completed
+
+            </div>
+
+            <div
+              class="
+                text-xs
+                text-muted
+                mt-2
+              "
+            >
+
+              ${certificates}
+              certificates earned
+
+            </div>
+
+          </div>
+
+          <!-- Streak -->
+
+          <div
+            class="
+              card
+              stat-card
+              animate-in
+              delay-3
+            "
+          >
+
+            <div class="stat-icon">
+              🔥
+            </div>
+
+            <div class="stat-value">
+
+              ${streak}
+
+            </div>
+
+            <div class="stat-label">
+
+              Day Streak
+
+            </div>
+
+            <div
+              class="
+                text-xs
+                text-muted
+                mt-2
+              "
+            >
+
+              Keep learning daily
+
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- ======================================
+             PROGRESS + QUIZ
+        ======================================= -->
+
+        <div
+          class="grid-2"
+          style="
+            margin-bottom:1.5rem;
+            align-items:stretch;
+          "
+        >
+
+          <!-- Overall Progress -->
+
+          <div
+            class="
+              card
+              card-static
+              animate-in
+            "
+          >
+
+            <div
+              class="
+                flex
+                justify-between
+                items-center
+                mb-3
+              "
+            >
+
+              <h3>
+                Overall Progress
+              </h3>
+
+              <span
+                class="
+                  badge
+                  badge-primary
+                "
+              >
+
+                ${awarenessScore}%
+
+              </span>
+
+            </div>
+
+            <div
+              class="
+                flex
+                flex-col
+                gap-3
+              "
+            >
+
+              ${modulesHTML}
+
+            </div>
+
+            <a
+              href="learning.html"
+              class="
+                btn
+                btn-secondary
+                w-full
+                mt-4
+              "
+            >
+
+              Continue Learning
+
+            </a>
+
+          </div>
+
+          <!-- Right Side -->
+
+          <div
+            class="
+              flex
+              flex-col
+              gap-4
+            "
+          >
+
+            <!-- Quiz -->
+
+            <div
+              class="
+                card
+                card-static
+                animate-in
+                delay-1
+              "
+              style="
+                background:var(--gradient);
+                color:#fff;
+                border:none;
+              "
+            >
+
+              <div
+                class="
+                  flex
+                  justify-between
+                  items-start
+                "
+              >
+
+                <div>
+
+                  <div
+                    class="text-sm"
+                    style="
+                      opacity:0.85
+                    "
+                  >
+                    Upcoming Quiz
+                  </div>
+
+                  <h3
+                    style="
+                      margin:0.4rem 0;
+                    "
+                  >
+                    Deepfake Awareness
+                  </h3>
+
+                  <p
+                    class="text-sm"
+                    style="
+                      opacity:0.9
+                    "
+                  >
+                    10 questions ·
+                    8 minutes ·
+                    Certificate eligible
+                  </p>
+
+                </div>
+
+                <span
+                  class="badge"
+                  style="
+                    background:
+                    rgba(255,255,255,0.2);
+                    color:#fff;
+                  "
+                >
+                  Today
+                </span>
+
+              </div>
+
+              <a
+                href="quiz.html"
+                class="btn mt-4"
+                style="
+                  background:#fff;
+                  color:#4f46e5;
+                "
+              >
+                Start Quiz →
+              </a>
+
+            </div>
+
+            <!-- Security Tip -->
+
+            <div
+              class="
+                card
+                card-static
+                animate-in
+                delay-2
+              "
+            >
+
+              <h3 class="mb-2">
+                💡 Security Tip of the Day
+              </h3>
+
+              <p
+                class="
+                  text-muted
+                  text-sm
+                "
+              >
+
+                ${getSecurityTip()}
+
+              </p>
+
+            </div>
+
+            <!-- Community Alert -->
+
+            <div
+              class="
+                alert
+                alert-warning
+              "
+              style="margin:0"
+            >
+
+              <div>
+
+                <strong>
+                  Community Alert
+                </strong>
+
+                <p
+                  class="
+                    text-sm
+                    text-muted
+                    mt-1
+                  "
+                >
+
+                  Fake TCS Internship Offer
+                  is trending on campus.
+
+                  <a
+                    href="community.html"
+                    style="
+                      color:
+                      var(--primary-light);
+                    "
+                  >
+                    View details →
+                  </a>
+
+                </p>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- ======================================
+             CAMPUS ANNOUNCEMENTS
+        ======================================= -->
+
+        <div
+          class="
+            card
+            card-static
+            animate-in
+          "
+          style="
+            margin-bottom:1.5rem;
+          "
+        >
+
+          <div
+            class="
+              flex
+              justify-between
+              items-center
+              mb-3
+              flex-wrap
+              gap-2
+            "
+          >
+
+            <div>
+
+              <h3>
+                📢 Campus Announcements
+              </h3>
+
+              <p
+                class="
+                  text-xs
+                  text-muted
+                  mt-1
+                "
+              >
+                Latest announcements from CyberAware administrators.
+              </p>
+
+            </div>
+
+            <span
+              class="
+                badge
+                badge-primary
+              "
+            >
+
+              ${announcements.length}
+              New
+
+            </span>
+
+          </div>
+
+          <div
+            class="
+              flex
+              flex-col
+              gap-2
+            "
+          >
+
+            ${renderStudentAnnouncements()}
+
+          </div>
+
+        </div>
+
+        <!-- ======================================
+             QUICK ACCESS
+        ======================================= -->
+
+        <h3 class="mb-3">
+          Quick Access
+        </h3>
+
+        <div
+          class="grid-4"
+          style="
+            margin-bottom:1.75rem;
+          "
+        >
+
+          <a
+            href="survey.html"
+            class="card animate-in"
+            style="
+              display:block;
+              text-align:center;
+            "
+          >
+
+            <div
+              style="
+                font-size:1.75rem;
+                margin-bottom:0.5rem;
+              "
+            >
+              📋
+            </div>
+
+            <strong>
+              Survey
+            </strong>
+
+            <div
+              class="
+                text-xs
+                text-muted
+                mt-1
+              "
+            >
+              Pre / Post assessment
+            </div>
+
+          </a>
+
+          <a
+            href="ai-checker.html"
+            class="
+              card
+              animate-in
+              delay-1
+            "
+            style="
+              display:block;
+              text-align:center;
+            "
+          >
+
+            <div
+              style="
+                font-size:1.75rem;
+                margin-bottom:0.5rem;
+              "
+            >
+              🤖
+            </div>
+
+            <strong>
+              AI Checker
+            </strong>
+
+            <div
+              class="
+                text-xs
+                text-muted
+                mt-1
+              "
+            >
+              Analyze suspicious text
+            </div>
+
+          </a>
+
+          <a
+            href="community.html"
+            class="
+              card
+              animate-in
+              delay-2
+            "
+            style="
+              display:block;
+              text-align:center;
+            "
+          >
+
+            <div
+              style="
+                font-size:1.75rem;
+                margin-bottom:0.5rem;
+              "
+            >
+              🚨
+            </div>
+
+            <strong>
+              Alert Wall
+            </strong>
+
+            <div
+              class="
+                text-xs
+                text-muted
+                mt-1
+              "
+            >
+              Campus scam feed
+            </div>
+
+          </a>
+
+          <a
+            href="extension.html"
+            class="
+              card
+              animate-in
+              delay-3
+            "
+            style="
+              display:block;
+              text-align:center;
+            "
+          >
+
+            <div
+              style="
+                font-size:1.75rem;
+                margin-bottom:0.5rem;
+              "
+            >
+              🧩
+            </div>
+
+            <strong>
+              Extension
+            </strong>
+
+            <div
+              class="
+                text-xs
+                text-muted
+                mt-1
+              "
+            >
+              Browser protection
+            </div>
+
+          </a>
+
+        </div>
+
+        <!-- ======================================
+             ACTIVITY + NOTIFICATIONS
+        ======================================= -->
+
+        <div class="grid-2">
+
+          <!-- Recent Activity -->
+
+          <div
+            class="
+              card
+              card-static
+            "
+          >
+
+            <h3 class="mb-3">
+              Recent Activity
+            </h3>
+
+            <div
+              class="
+                flex
+                flex-col
+                gap-3
+              "
+            >
+
+              ${activitiesHTML}
+
+            </div>
+
+          </div>
+
+          <!-- Notifications -->
+
+          <div
+            class="
+              card
+              card-static
+            "
+          >
+
+            <div
+              class="
+                flex
+                justify-between
+                items-center
+                mb-3
+              "
+            >
+
+              <h3>
+                Notifications
+              </h3>
+
+              <span
+                class="
+                  badge
+                  badge-primary
+                "
+              >
+                New
+              </span>
+
+            </div>
+
+            <div
+              class="
+                flex
+                flex-col
+                gap-3
+              "
+            >
+
+              <div
+                class="
+                  flex
+                  gap-3
+                  items-start
+                "
+                style="
+                  padding-bottom:0.75rem;
+                  border-bottom:
+                  1px solid var(--border);
+                "
+              >
+
+                <div class="stat-icon">
+                  🛡️
+                </div>
+
+                <div>
+
+                  <strong class="text-sm">
+                    Security reminder
+                  </strong>
+
+                  <p
+                    class="
+                      text-xs
+                      text-muted
+                      mt-1
+                    "
+                  >
+                    Complete your pending
+                    awareness modules.
+                  </p>
+
+                </div>
+
+              </div>
+
+              <div
+                class="
+                  flex
+                  gap-3
+                  items-start
+                "
+                style="
+                  padding-bottom:0.75rem;
+                  border-bottom:
+                  1px solid var(--border);
+                "
+              >
+
+                <div class="stat-icon">
+                  🏆
+                </div>
+
+                <div>
+
+                  <strong class="text-sm">
+                    Quiz available
+                  </strong>
+
+                  <p
+                    class="
+                      text-xs
+                      text-muted
+                      mt-1
+                    "
+                  >
+                    Deepfake Awareness Quiz
+                    is available today.
+                  </p>
+
+                </div>
+
+              </div>
+
+              <div
+                class="
+                  flex
+                  gap-3
+                  items-start
+                "
+              >
+
+                <div class="stat-icon">
+                  🚨
+                </div>
+
+                <div>
+
+                  <strong class="text-sm">
+                    New community alert
+                  </strong>
+
+                  <p
+                    class="
+                      text-xs
+                      text-muted
+                      mt-1
+                    "
+                  >
+                    Check the latest campus
+                    scam alerts.
+                  </p>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      `;
+
+        // ===================================================
+        // HIDE LOADER
+        // ===================================================
+
+        const loader = document.getElementById("page-loader");
+
+        if (loader) {
+          setTimeout(function () {
+            loader.classList.add("hidden");
+          }, 300);
+        }
+
+        console.log("[CyberAware] Dashboard rendered using Firestore data.");
+      }
+
+      // =====================================================
+      // START DASHBOARD
+      // =====================================================
+
+      async function startDashboard() {
+        console.log("[CyberAware] Starting Firebase dashboard...");
+
+        // ================================================
+        // FIREBASE
+        // ================================================
+
+        const firebaseReady = await waitForFirebase();
+
+        if (!firebaseReady) {
+          showError("Firebase initialization failed.");
+
+          return;
+        }
+
+        // ================================================
+        // AUTH
+        // ================================================
+
+        try {
+          auth = firebase.auth();
+        } catch (error) {
+          console.error("[CyberAware] Auth initialization failed:", error);
+
+          showError("Firebase Authentication could not be initialized.");
+
+          return;
+        }
+
+        // ================================================
+        // AUTH STATE
+        // ================================================
+
+        auth.onAuthStateChanged(async function (user) {
+          console.log(
+            "[CyberAware] Auth state:",
+            user ? user.email : "No user",
+          );
+
+          // ============================================
+          // NOT LOGGED IN
+          // ============================================
+
+          if (!user) {
+            console.log("[CyberAware] No logged-in user.");
+
+            window.location.href = "login.html";
+
+            return;
+          }
+
+          // ============================================
+          // RELOAD USER
+          // ============================================
+
+          try {
+            await user.reload();
+          } catch (error) {
+            console.warn("[CyberAware] User reload failed:", error);
+          }
+
+          currentUser = auth.currentUser;
+
+          // ============================================
+          // EMAIL VERIFICATION
+          // ============================================
+
+          if (!currentUser.emailVerified) {
+            console.warn("[CyberAware] Email is not verified.");
+
+            try {
+              await auth.signOut();
+            } catch (error) {
+              console.error("[CyberAware] Signout error:", error);
+            }
+
+            window.location.href = "login.html";
+
+            return;
+          }
+
+          // ============================================
+          // LOAD FIRESTORE PROFILE
+          // ============================================
+
+          const loaded = await loadStudentData(currentUser);
+
+          if (!loaded) {
+            return;
+          }
+
+          // ============================================
+          // LOAD ANNOUNCEMENTS
+          // ============================================
+
+          await loadAnnouncements();
+
+          // ============================================
+          // RENDER
+          // ============================================
+
+          renderDashboard();
+        });
+      }
+
+      // =====================================================
+      // RUN
+      // =====================================================
+
+      startDashboard();
+    </script>
+  </body>
+</html>

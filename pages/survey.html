@@ -1,0 +1,2251 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <title>Awareness Survey · CyberAware</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+
+  <link
+    rel="preconnect"
+    href="https://fonts.gstatic.com"
+    crossorigin
+  />
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap"
+    rel="stylesheet"
+  />
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Project CSS -->
+  <link rel="stylesheet" href="../css/styles.css" />
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+  <style>
+
+    .option-card {
+      display: flex;
+      gap: 0.85rem;
+      align-items: flex-start;
+      padding: 1rem 1.15rem;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--bg-elevated);
+      cursor: pointer;
+      transition: all var(--transition);
+      margin-bottom: 0.65rem;
+    }
+
+    .option-card:hover {
+      border-color: var(--primary-light);
+      background: var(--gradient-soft);
+    }
+
+    .option-card.selected {
+      border-color: var(--primary);
+      background: var(--gradient-soft);
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+    }
+
+    .option-card input {
+      margin-top: 0.2rem;
+      accent-color: var(--primary);
+    }
+
+    .confetti-burst {
+      font-size: 2.5rem;
+      animation: confetti 1s ease forwards;
+    }
+
+    .saving-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      backdrop-filter: blur(5px);
+    }
+
+    .saving-box {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 2rem;
+      text-align: center;
+      min-width: 280px;
+    }
+
+    .spinner {
+      width: 42px;
+      height: 42px;
+      border: 4px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 1rem;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+  </style>
+
+</head>
+
+<body>
+
+  <!-- =====================================================
+       APP ROOT
+  ====================================================== -->
+
+  <div id="app-root">
+
+    <div
+      style="
+        min-height:100vh;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+      "
+    >
+      Loading CyberAware...
+    </div>
+
+  </div>
+
+
+  <!-- =====================================================
+       SAVING OVERLAY
+  ====================================================== -->
+
+  <div
+    id="saving-overlay"
+    class="saving-overlay"
+  >
+
+    <div class="saving-box">
+
+      <div class="spinner"></div>
+
+      <strong>
+        Saving your survey...
+      </strong>
+
+      <p
+        class="text-sm text-muted"
+        style="margin-top:0.5rem"
+      >
+        Please don't close this page.
+      </p>
+
+    </div>
+
+  </div>
+
+
+  <!-- =====================================================
+       PROJECT JS
+  ====================================================== -->
+
+  <script src="../js/data.js"></script>
+
+  <script src="../js/app.js"></script>
+
+  <script src="../js/components.js"></script>
+
+
+  <!-- =====================================================
+       FIREBASE CONFIG
+  ====================================================== -->
+
+  <script src="../js/firebase-config.js"></script>
+
+
+  <!-- =====================================================
+       SURVEY SCRIPT
+  ====================================================== -->
+
+  <script>
+
+    console.log(
+      "[CyberAware] Firebase Survey starting..."
+    );
+
+
+    // =====================================================
+    // GLOBAL VARIABLES
+    // =====================================================
+
+    let auth = null;
+
+    let db = null;
+
+    let currentUser = null;
+
+    let studentData = {};
+
+    const questions =
+      AppData.surveyQuestions;
+
+    let step = "welcome";
+
+    let index = 0;
+
+    let answers = {};
+
+    let surveyType = "pre";
+
+    let previousPreScore = null;
+
+    let previousPostScore = null;
+
+
+    /*
+     * IMPORTANT FIX
+     *
+     * page-main does not exist when the script first runs.
+     * It is created later inside initializeLayout().
+     *
+     * Therefore we declare main here and assign it
+     * AFTER initializeLayout() creates page-main.
+     */
+
+    let main = null;
+
+
+    // =====================================================
+    // WAIT FOR FIREBASE
+    // =====================================================
+
+    async function waitForFirebase() {
+
+      try {
+
+        if (window.firebaseReady) {
+
+          await window.firebaseReady;
+
+        }
+
+        let attempts = 0;
+
+        while (
+          (!window.firebaseApp ||
+            !window.firebase) &&
+          attempts < 100
+        ) {
+
+          await new Promise(
+            function(resolve) {
+
+              setTimeout(
+                resolve,
+                100
+              );
+
+            }
+          );
+
+          attempts++;
+
+        }
+
+        if (
+          !window.firebase ||
+          !window.firebaseApp
+        ) {
+
+          throw new Error(
+            "Firebase was not initialized."
+          );
+
+        }
+
+        console.log(
+          "[CyberAware] Firebase ready."
+        );
+
+        return true;
+
+      }
+
+      catch (error) {
+
+        console.error(
+          "[CyberAware] Firebase error:",
+          error
+        );
+
+        return false;
+
+      }
+
+    }
+
+
+    // =====================================================
+    // SHOW ERROR
+    // =====================================================
+
+    function showError(message) {
+
+      document.getElementById(
+        "app-root"
+      ).innerHTML = `
+
+        <div
+          style="
+            min-height:100vh;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            padding:2rem;
+          "
+        >
+
+          <div
+            class="card"
+            style="
+              max-width:520px;
+              width:100%;
+              text-align:center;
+            "
+          >
+
+            <div
+              style="
+                font-size:3rem;
+                margin-bottom:1rem;
+              "
+            >
+              ⚠️
+            </div>
+
+            <h2>
+              Unable to Load Survey
+            </h2>
+
+            <p
+              class="text-muted"
+              style="
+                margin-top:0.75rem;
+              "
+            >
+              ${message}
+            </p>
+
+            <button
+              class="btn btn-primary"
+              style="
+                margin-top:1.25rem;
+              "
+              onclick="location.reload()"
+            >
+              Refresh
+            </button>
+
+          </div>
+
+        </div>
+
+      `;
+
+    }
+
+
+    // =====================================================
+    // INITIALIZE LAYOUT
+    // =====================================================
+
+    function initializeLayout() {
+
+      Layout.base = "";
+
+      document.getElementById(
+        "app-root"
+      ).innerHTML = `
+
+        ${Layout.loader()}
+
+        <div class="app-shell">
+
+          ${Layout.studentSidebar()}
+
+          <div class="main-area">
+
+            ${Layout.topbar(
+              "Awareness Survey"
+            )}
+
+            <main
+              class="page-content"
+              id="page-main"
+            ></main>
+
+          </div>
+
+        </div>
+
+      `;
+
+
+      /*
+       * IMPORTANT FIX
+       *
+       * page-main has now been created.
+       * So now we can safely get the element.
+       */
+
+      main =
+        document.getElementById(
+          "page-main"
+        );
+
+
+      if (!main) {
+
+        console.error(
+          "[CyberAware] page-main element could not be created."
+        );
+
+        showError(
+          "Survey page could not be initialized."
+        );
+
+        return false;
+
+      }
+
+
+      console.log(
+        "[CyberAware] page-main initialized."
+      );
+
+
+      try {
+
+        Layout.renderNotifs();
+
+      }
+
+      catch (error) {
+
+        console.warn(
+          "[CyberAware] Notification error:",
+          error
+        );
+
+      }
+
+
+      try {
+
+        App.init();
+
+      }
+
+      catch (error) {
+
+        console.warn(
+          "[CyberAware] App init warning:",
+          error
+        );
+
+      }
+
+
+      return true;
+
+    }
+
+
+    // =====================================================
+    // LOAD STUDENT PROFILE
+    // =====================================================
+
+    async function loadStudentProfile(user) {
+
+      try {
+
+        db =
+          firebase.firestore();
+
+        const userRef =
+          db
+            .collection("users")
+            .doc(user.uid);
+
+        const snapshot =
+          await userRef.get();
+
+
+        if (!snapshot.exists) {
+
+          throw new Error(
+            "Student profile was not found in Firestore."
+          );
+
+        }
+
+
+        studentData =
+          snapshot.data() || {};
+
+
+        console.log(
+          "[CyberAware] Student profile loaded:",
+          studentData
+        );
+
+
+        previousPreScore =
+          studentData.preSurveyScore !== undefined
+            ? Number(studentData.preSurveyScore)
+            : null;
+
+
+        previousPostScore =
+          studentData.postSurveyScore !== undefined
+            ? Number(studentData.postSurveyScore)
+            : null;
+
+
+        return true;
+
+      }
+
+      catch (error) {
+
+        console.error(
+          "[CyberAware] Profile loading error:",
+          error
+        );
+
+
+        showError(
+          error.message
+        );
+
+
+        return false;
+
+      }
+
+    }
+
+
+    // =====================================================
+    // RENDER
+    // =====================================================
+
+    function render() {
+
+      if (!main) {
+
+        console.error(
+          "[CyberAware] Cannot render because main is null."
+        );
+
+        return;
+
+      }
+
+
+      if (step === "welcome") {
+
+        renderWelcome();
+
+        return;
+
+      }
+
+
+      if (step === "quiz") {
+
+        renderQuiz();
+
+        return;
+
+      }
+
+
+      renderResult();
+
+    }
+
+
+    // =====================================================
+    // WELCOME
+    // =====================================================
+
+    function renderWelcome() {
+
+      if (!main) {
+
+        console.error(
+          "[CyberAware] renderWelcome(): main is null."
+        );
+
+        return;
+
+      }
+
+
+      const hasPre =
+        previousPreScore !== null;
+
+
+      const hasPost =
+        previousPostScore !== null;
+
+
+      main.innerHTML = `
+
+        <div
+          class="card card-static animate-in"
+          style="
+            max-width:720px;
+            margin:0 auto;
+            padding:2.5rem;
+            text-align:center;
+          "
+        >
+
+          <div
+            class="feature-icon"
+            style="
+              margin:0 auto 1.25rem;
+              font-size:1.5rem;
+            "
+          >
+            📋
+          </div>
+
+
+          <h1
+            style="
+              margin-bottom:0.75rem;
+            "
+          >
+            Pre & Post Awareness Survey
+          </h1>
+
+
+          <p
+            class="text-muted mb-4"
+            style="
+              max-width:480px;
+              margin-left:auto;
+              margin-right:auto;
+            "
+          >
+            Measure your cybersecurity awareness
+            across fake news, phishing, internships,
+            scholarships, and safe browsing.
+            10 scenario-based questions · ~5 minutes.
+          </p>
+
+
+          ${
+            hasPre
+              ? `
+                <div
+                  class="alert alert-info"
+                  style="
+                    margin-bottom:1.5rem;
+                    text-align:left;
+                  "
+                >
+
+                  <strong>
+                    Previous Pre-Survey Score:
+                  </strong>
+
+                  ${previousPreScore}%
+
+                </div>
+              `
+              : ""
+          }
+
+
+          ${
+            hasPost
+              ? `
+                <div
+                  class="alert alert-success"
+                  style="
+                    margin-bottom:1.5rem;
+                    text-align:left;
+                  "
+                >
+
+                  <strong>
+                    Previous Post-Survey Score:
+                  </strong>
+
+                  ${previousPostScore}%
+
+                </div>
+              `
+              : ""
+          }
+
+
+          <div
+            class="grid-2"
+            style="
+              text-align:left;
+              margin-bottom:1.75rem;
+            "
+          >
+
+            <!-- PRE SURVEY -->
+
+            <button
+              class="card"
+              type="button"
+              id="start-pre"
+              style="
+                cursor:pointer;
+                border:2px solid var(--primary);
+              "
+            >
+
+              <span
+                class="badge badge-primary mb-2"
+              >
+
+                ${
+                  hasPre
+                    ? "Retake Pre-Survey"
+                    : "Recommended first"
+                }
+
+              </span>
+
+
+              <h3>
+                Pre-Awareness Survey
+              </h3>
+
+
+              <p
+                class="text-sm text-muted mt-1"
+              >
+                Baseline your knowledge before training.
+              </p>
+
+            </button>
+
+
+            <!-- POST SURVEY -->
+
+            <button
+              class="card"
+              type="button"
+              id="start-post"
+              style="
+                cursor:pointer;
+              "
+            >
+
+              <span
+                class="badge badge-success mb-2"
+              >
+
+                ${
+                  hasPost
+                    ? "Retake Post-Survey"
+                    : "After learning"
+                }
+
+              </span>
+
+
+              <h3>
+                Post-Awareness Survey
+              </h3>
+
+
+              <p
+                class="text-sm text-muted mt-1"
+              >
+                Compare improvement after modules.
+              </p>
+
+            </button>
+
+          </div>
+
+
+          <p class="text-xs text-muted">
+
+            Logged in as:
+
+            <strong>
+              ${
+                currentUser
+                  ? currentUser.email
+                  : "Student"
+              }
+            </strong>
+
+          </p>
+
+
+        </div>
+
+      `;
+
+
+      document.getElementById(
+        "start-pre"
+      ).onclick =
+        function() {
+
+          start("pre");
+
+        };
+
+
+      document.getElementById(
+        "start-post"
+      ).onclick =
+        function() {
+
+          start("post");
+
+        };
+
+    }
+
+
+    // =====================================================
+    // START SURVEY
+    // =====================================================
+
+    function start(type) {
+
+      surveyType =
+        type;
+
+
+      index = 0;
+
+
+      answers = {};
+
+
+      step = "quiz";
+
+
+      render();
+
+    }
+
+
+    // =====================================================
+    // QUIZ
+    // =====================================================
+
+    function renderQuiz() {
+
+      if (!main) {
+
+        return;
+
+      }
+
+
+      const q =
+        questions[index];
+
+
+      const progress =
+        ((index) /
+          questions.length) *
+        100;
+
+
+      main.innerHTML = `
+
+        <div
+          style="
+            max-width:740px;
+            margin:0 auto;
+          "
+          class="animate-in"
+        >
+
+          <div
+            class="
+              flex
+              justify-between
+              items-center
+              mb-3
+            "
+          >
+
+            <span
+              class="badge badge-primary"
+            >
+
+              ${
+                surveyType === "pre"
+                  ? "Pre-Survey"
+                  : "Post-Survey"
+              }
+
+            </span>
+
+
+            <span
+              class="text-sm text-muted"
+            >
+
+              Question
+              ${index + 1}
+              of
+              ${questions.length}
+
+            </span>
+
+          </div>
+
+
+          <div
+            class="
+              progress
+              progress-lg
+              mb-4
+            "
+          >
+
+            <div
+              class="progress-bar"
+              style="
+                width:${progress}%
+              "
+            ></div>
+
+          </div>
+
+
+          <div
+            class="card card-static"
+          >
+
+            <div
+              class="
+                badge
+                badge-info
+                mb-3
+              "
+            >
+
+              ${q.area}
+
+            </div>
+
+
+            <h2
+              style="
+                font-size:1.25rem;
+                margin-bottom:1.25rem;
+              "
+            >
+
+              ${q.q}
+
+            </h2>
+
+
+            <div id="options">
+
+              ${q.options
+                .map(
+                  function(opt, i) {
+
+                    return `
+
+                      <label
+                        class="
+                          option-card
+                          ${
+                            answers[q.id] === i
+                              ? "selected"
+                              : ""
+                          }
+                        "
+                      >
+
+                        <input
+                          type="radio"
+                          name="q"
+                          value="${i}"
+                          ${
+                            answers[q.id] === i
+                              ? "checked"
+                              : ""
+                          }
+                        />
+
+                        <span>
+                          ${opt}
+                        </span>
+
+                      </label>
+
+                    `;
+
+                  }
+                )
+                .join("")}
+
+            </div>
+
+
+            <div
+              class="
+                flex
+                justify-between
+                mt-4
+                gap-3
+              "
+            >
+
+              <button
+                class="btn btn-secondary"
+                id="prev-btn"
+                ${
+                  index === 0
+                    ? "disabled"
+                    : ""
+                }
+              >
+                ← Previous
+              </button>
+
+
+              <button
+                class="btn btn-primary"
+                id="next-btn"
+              >
+
+                ${
+                  index === questions.length - 1
+                    ? "Submit Survey"
+                    : "Next →"
+                }
+
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      `;
+
+
+      document
+        .querySelectorAll(".option-card")
+        .forEach(
+          function(card) {
+
+            card.addEventListener(
+              "click",
+              function() {
+
+                const val =
+                  Number(
+                    card
+                      .querySelector("input")
+                      .value
+                  );
+
+
+                answers[q.id] =
+                  val;
+
+
+                renderQuiz();
+
+              }
+            );
+
+          }
+        );
+
+
+      document.getElementById(
+        "prev-btn"
+      ).onclick =
+        function() {
+
+          index--;
+
+          render();
+
+        };
+
+
+      document.getElementById(
+        "next-btn"
+      ).onclick =
+        async function() {
+
+          if (
+            answers[q.id] === undefined
+          ) {
+
+            App.toast(
+              "Please select an answer",
+              "warning"
+            );
+
+            return;
+
+          }
+
+
+          if (
+            index ===
+            questions.length - 1
+          ) {
+
+            await submitSurvey();
+
+          }
+
+          else {
+
+            index++;
+
+            render();
+
+          }
+
+        };
+
+    }
+
+
+    // =====================================================
+    // SUBMIT SURVEY TO FIRESTORE
+    // =====================================================
+
+    async function submitSurvey() {
+
+      if (!currentUser) {
+
+        App.toast(
+          "You are not logged in.",
+          "error"
+        );
+
+        return;
+
+      }
+
+
+      // ===================================================
+      // CALCULATE SCORE
+      // ===================================================
+
+      let correct = 0;
+
+      const areaStats = {};
+
+
+      questions.forEach(
+        function(q) {
+
+          if (!areaStats[q.area]) {
+
+            areaStats[q.area] = {
+              correct: 0,
+              total: 0
+            };
+
+          }
+
+
+          areaStats[q.area].total++;
+
+
+          if (
+            answers[q.id] === q.correct
+          ) {
+
+            correct++;
+
+            areaStats[q.area].correct++;
+
+          }
+
+        }
+      );
+
+
+      const score =
+        Math.round(
+          (correct /
+            questions.length) *
+          100
+        );
+
+
+      // ===================================================
+      // SHOW SAVING
+      // ===================================================
+
+      const overlay =
+        document.getElementById(
+          "saving-overlay"
+        );
+
+
+      overlay.style.display =
+        "flex";
+
+
+      try {
+
+        const timestamp =
+          firebase.firestore.FieldValue.serverTimestamp();
+
+
+        // =================================================
+        // SURVEY DOCUMENT
+        // =================================================
+
+        const surveyRef =
+          db
+            .collection("users")
+            .doc(currentUser.uid)
+            .collection("surveys")
+            .doc();
+
+
+        await surveyRef.set({
+
+          userId:
+            currentUser.uid,
+
+          email:
+            currentUser.email,
+
+          type:
+            surveyType,
+
+          score:
+            score,
+
+          correct:
+            correct,
+
+          total:
+            questions.length,
+
+          answers:
+            answers,
+
+          areaStats:
+            areaStats,
+
+          submittedAt:
+            timestamp
+
+        });
+
+
+        // =================================================
+        // UPDATE USER PROFILE
+        // =================================================
+
+        const userRef =
+          db
+            .collection("users")
+            .doc(currentUser.uid);
+
+
+        const updateData = {};
+
+
+        if (
+          surveyType === "pre"
+        ) {
+
+          updateData.preSurveyScore =
+            score;
+
+          updateData.preSurveyCompleted =
+            true;
+
+          updateData.preSurveyCompletedAt =
+            timestamp;
+
+        }
+
+
+        if (
+          surveyType === "post"
+        ) {
+
+          updateData.postSurveyScore =
+            score;
+
+          updateData.postSurveyCompleted =
+            true;
+
+          updateData.postSurveyCompletedAt =
+            timestamp;
+
+        }
+
+
+        // =================================================
+        // AWARENESS SCORE
+        // =================================================
+
+        updateData.awarenessScore =
+          score;
+
+
+        await userRef.update(
+          updateData
+        );
+
+
+        // =================================================
+        // UPDATE LOCAL DATA
+        // =================================================
+
+        if (
+          surveyType === "pre"
+        ) {
+
+          previousPreScore =
+            score;
+
+          studentData.preSurveyScore =
+            score;
+
+        }
+
+
+        if (
+          surveyType === "post"
+        ) {
+
+          previousPostScore =
+            score;
+
+          studentData.postSurveyScore =
+            score;
+
+        }
+
+
+        studentData.awarenessScore =
+          score;
+
+
+        // =================================================
+        // RESULT
+        // =================================================
+
+        window.__surveyResult = {
+
+          score:
+            score,
+
+          correct:
+            correct,
+
+          areaStats:
+            areaStats,
+
+          total:
+            questions.length
+
+        };
+
+
+        step =
+          "result";
+
+
+        render();
+
+
+        overlay.style.display =
+          "none";
+
+
+        App.toast(
+          "Survey submitted successfully!",
+          "success"
+        );
+
+
+        console.log(
+          "[CyberAware] Survey saved to Firestore:",
+          surveyRef.id
+        );
+
+      }
+
+      catch (error) {
+
+        console.error(
+          "[CyberAware] Survey submission failed:",
+          error
+        );
+
+
+        overlay.style.display =
+          "none";
+
+
+        App.toast(
+          "Failed to save survey. Please try again.",
+          "error"
+        );
+
+      }
+
+    }
+
+
+    // =====================================================
+    // RESULT
+    // =====================================================
+
+    function renderResult() {
+
+      if (!main) {
+
+        return;
+
+      }
+
+
+      const r =
+        window.__surveyResult;
+
+
+      if (!r) {
+
+        step =
+          "welcome";
+
+        render();
+
+        return;
+
+      }
+
+
+      const areas =
+        Object.entries(
+          r.areaStats
+        ).map(
+          function([name, v]) {
+
+            return {
+
+              name:
+                name,
+
+              pct:
+                Math.round(
+                  (v.correct /
+                    v.total) *
+                  100
+                )
+
+            };
+
+          }
+        );
+
+
+      const strong =
+        areas
+          .filter(
+            function(a) {
+
+              return a.pct >= 70;
+
+            }
+          )
+          .map(
+            function(a) {
+
+              return a.name;
+
+            }
+          );
+
+
+      const weak =
+        areas
+          .filter(
+            function(a) {
+
+              return a.pct < 70;
+
+            }
+          )
+          .map(
+            function(a) {
+
+              return a.name;
+
+            }
+          );
+
+
+      // ===================================================
+      // REAL PRE / POST SCORES
+      // ===================================================
+
+      let preScore =
+        previousPreScore;
+
+
+      let postScore =
+        previousPostScore;
+
+
+      if (
+        surveyType === "pre"
+      ) {
+
+        preScore =
+          r.score;
+
+      }
+
+
+      if (
+        surveyType === "post"
+      ) {
+
+        postScore =
+          r.score;
+
+      }
+
+
+      let improvement = 0;
+
+
+      if (
+        preScore !== null &&
+        postScore !== null
+      ) {
+
+        improvement =
+          Math.round(
+            postScore -
+            preScore
+          );
+
+      }
+
+
+      // ===================================================
+      // RESULT PAGE
+      // ===================================================
+
+      main.innerHTML = `
+
+        <div
+          style="
+            max-width:900px;
+            margin:0 auto;
+          "
+          class="animate-in"
+        >
+
+          <!-- RESULT HEADER -->
+
+          <div
+            class="
+              card
+              card-static
+              text-center
+            "
+            style="
+              padding:2.5rem;
+              margin-bottom:1.5rem;
+            "
+          >
+
+            <div class="confetti-burst">
+              🎉
+            </div>
+
+
+            <h1
+              style="
+                margin:0.5rem 0;
+              "
+            >
+              Survey Complete!
+            </h1>
+
+
+            <p class="text-muted mb-3">
+
+              Your
+              ${surveyType}
+              -awareness results are ready.
+
+            </p>
+
+
+            <div
+              style="
+                font-size:3.5rem;
+                font-weight:800;
+              "
+              class="gradient-text"
+            >
+
+              ${r.score}%
+
+            </div>
+
+
+            <div class="text-muted">
+
+              Awareness Score ·
+              ${r.correct}/${r.total}
+              correct
+
+            </div>
+
+          </div>
+
+
+          <!-- STATS -->
+
+          <div
+            class="stats-grid"
+            style="
+              margin-bottom:1.5rem;
+              grid-template-columns:
+              repeat(3,1fr);
+            "
+          >
+
+            <div
+              class="
+                card
+                stat-card
+              "
+            >
+
+              <div class="stat-label">
+                Strong Areas
+              </div>
+
+
+              <div
+                class="stat-value"
+                style="
+                  font-size:1.25rem;
+                "
+              >
+
+                ${
+                  strong.length
+                    ? strong.join(", ")
+                    : "Keep practicing"
+                }
+
+              </div>
+
+            </div>
+
+
+            <div
+              class="
+                card
+                stat-card
+              "
+            >
+
+              <div class="stat-label">
+                Weak Areas
+              </div>
+
+
+              <div
+                class="stat-value"
+                style="
+                  font-size:1.25rem;
+                "
+              >
+
+                ${
+                  weak.length
+                    ? weak.join(", ")
+                    : "None — great!"
+                }
+
+              </div>
+
+            </div>
+
+
+            <div
+              class="
+                card
+                stat-card
+              "
+            >
+
+              <div class="stat-label">
+
+                ${
+                  preScore !== null &&
+                  postScore !== null
+                    ? "Real Improvement"
+                    : "Current Score"
+                }
+
+              </div>
+
+
+              <div class="stat-value">
+
+                ${
+                  preScore !== null &&
+                  postScore !== null
+                    ? `${improvement > 0 ? "+" : ""}${improvement}%`
+                    : `${r.score}%`
+                }
+
+              </div>
+
+            </div>
+
+          </div>
+
+
+          <!-- COMPARISON -->
+
+          <div class="grid-2">
+
+            <div
+              class="
+                card
+                card-static
+              "
+            >
+
+              <h3 class="mb-3">
+                Pre vs Post Comparison
+              </h3>
+
+
+              ${
+                preScore !== null ||
+                postScore !== null
+                  ? `
+
+                    <div
+                      class="chart-bars"
+                      style="
+                        height:160px;
+                      "
+                    >
+
+                      <div
+                        class="
+                          chart-bar-col
+                        "
+                      >
+
+                        <div
+                          class="chart-bar"
+                          style="
+                            height:
+                            ${preScore || 0}%;
+                          "
+                        ></div>
+
+
+                        <span
+                          class="chart-label"
+                        >
+
+                          Pre
+
+                          ${
+                            preScore !== null
+                              ? `(${preScore}%)`
+                              : "(Not completed)"
+                          }
+
+                        </span>
+
+                      </div>
+
+
+                      <div
+                        class="
+                          chart-bar-col
+                        "
+                      >
+
+                        <div
+                          class="chart-bar"
+                          style="
+                            height:
+                            ${postScore || 0}%;
+                            background:
+                            linear-gradient(
+                              180deg,
+                              #10b981,
+                              #06b6d4
+                            );
+                          "
+                        ></div>
+
+
+                        <span
+                          class="chart-label"
+                        >
+
+                          Post
+
+                          ${
+                            postScore !== null
+                              ? `(${postScore}%)`
+                              : "(Not completed)"
+                          }
+
+                        </span>
+
+                      </div>
+
+                    </div>
+
+                  `
+                  : ""
+              }
+
+
+              <p
+                class="
+                  text-sm
+                  text-muted
+                  mt-3
+                "
+              >
+
+                ${
+                  preScore !== null &&
+                  postScore !== null
+                    ? `
+                      Your awareness changed by
+                      <strong>
+                        ${
+                          improvement > 0
+                            ? "+"
+                            : ""
+                        }${improvement}%
+                      </strong>
+                      from Pre to Post Survey.
+                    `
+                    : surveyType === "pre"
+                      ? `
+                        Complete your learning modules
+                        and then take the Post-Survey
+                        to measure your actual improvement.
+                      `
+                      : `
+                        Complete the Pre-Survey first
+                        to get a real comparison.
+                      `
+                }
+
+              </p>
+
+            </div>
+
+
+            <!-- AREA BREAKDOWN -->
+
+            <div
+              class="
+                card
+                card-static
+              "
+            >
+
+              <h3 class="mb-3">
+                Area Breakdown
+              </h3>
+
+
+              ${areas
+                .map(
+                  function(a) {
+
+                    return `
+
+                      <div class="mb-3">
+
+                        <div
+                          class="
+                            flex
+                            justify-between
+                            text-sm
+                            mb-1
+                          "
+                        >
+
+                          <span>
+                            ${a.name}
+                          </span>
+
+                          <span>
+                            ${a.pct}%
+                          </span>
+
+                        </div>
+
+
+                        <div class="progress">
+
+                          <div
+                            class="progress-bar"
+                            style="
+                              width:${a.pct}%
+                            "
+                          ></div>
+
+                        </div>
+
+                      </div>
+
+                    `;
+
+                  }
+                )
+                .join("")}
+
+
+              <div
+                class="
+                  flex
+                  gap-2
+                  mt-4
+                  flex-wrap
+                "
+              >
+
+                <a
+                  href="learning.html"
+                  class="
+                    btn
+                    btn-primary
+                  "
+                >
+                  Improve Weak Areas
+                </a>
+
+
+                <button
+                  class="
+                    btn
+                    btn-secondary
+                  "
+                  id="retake-btn"
+                >
+                  Retake Survey
+                </button>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      `;
+
+
+      document.getElementById(
+        "retake-btn"
+      ).onclick =
+        function() {
+
+          step =
+            "welcome";
+
+          render();
+
+        };
+
+    }
+
+
+    // =====================================================
+    // START APPLICATION
+    // =====================================================
+
+    async function startSurveyApp() {
+
+      console.log(
+        "[CyberAware] Starting survey..."
+      );
+
+
+      // ===================================================
+      // FIREBASE
+      // ===================================================
+
+      const ready =
+        await waitForFirebase();
+
+
+      if (!ready) {
+
+        showError(
+          "Firebase initialization failed."
+        );
+
+        return;
+
+      }
+
+
+      // ===================================================
+      // INITIALIZE LAYOUT
+      // ===================================================
+
+      const layoutReady =
+        initializeLayout();
+
+
+      if (!layoutReady) {
+
+        return;
+
+      }
+
+
+      // ===================================================
+      // AUTH
+      // ===================================================
+
+      try {
+
+        auth =
+          firebase.auth();
+
+        db =
+          firebase.firestore();
+
+      }
+
+      catch (error) {
+
+        console.error(
+          error
+        );
+
+
+        showError(
+          "Firebase Authentication or Firestore could not be initialized."
+        );
+
+        return;
+
+      }
+
+
+      // ===================================================
+      // AUTH STATE
+      // ===================================================
+
+      auth.onAuthStateChanged(
+        async function(user) {
+
+          console.log(
+            "[CyberAware] Auth state:",
+            user
+              ? user.email
+              : "No user"
+          );
+
+
+          // ===============================================
+          // NOT LOGGED IN
+          // ===============================================
+
+          if (!user) {
+
+            window.location.href =
+              "login.html";
+
+            return;
+
+          }
+
+
+          // ===============================================
+          // RELOAD
+          // ===============================================
+
+          try {
+
+            await user.reload();
+
+          }
+
+          catch (error) {
+
+            console.warn(
+              "[CyberAware] User reload failed:",
+              error
+            );
+
+          }
+
+
+          currentUser =
+            auth.currentUser;
+
+
+          // ===============================================
+          // EMAIL VERIFIED
+          // ===============================================
+
+          if (
+            !currentUser.emailVerified
+          ) {
+
+            try {
+
+              await auth.signOut();
+
+            }
+
+            catch (error) {
+
+              console.error(
+                error
+              );
+
+            }
+
+
+            window.location.href =
+              "login.html";
+
+
+            return;
+
+          }
+
+
+          // ===============================================
+          // LOAD PROFILE
+          // ===============================================
+
+          const loaded =
+            await loadStudentProfile(
+              currentUser
+            );
+
+
+          if (!loaded) {
+
+            return;
+
+          }
+
+
+          // ===============================================
+          // RENDER
+          // ===============================================
+
+          render();
+
+
+          // ===============================================
+          // HIDE LOADER
+          // ===============================================
+
+          const loader =
+            document.getElementById(
+              "page-loader"
+            );
+
+
+          if (loader) {
+
+            setTimeout(
+              function() {
+
+                loader.classList.add(
+                  "hidden"
+                );
+
+              },
+              300
+            );
+
+          }
+
+        }
+      );
+
+    }
+
+
+    // =====================================================
+    // RUN
+    // =====================================================
+
+    startSurveyApp();
+
+  </script>
+
+</body>
+
+</html>

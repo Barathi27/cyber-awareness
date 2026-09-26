@@ -1,0 +1,4399 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Admin Dashboard · CyberAware</title>
+
+    <!-- GOOGLE FONTS -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- TAILWIND -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- PROJECT CSS -->
+    <link rel="stylesheet" href="../css/styles.css" />
+
+    <!-- FIREBASE SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  </head>
+
+  <body>
+    <!-- APP ROOT -->
+    <div id="app-root"></div>
+
+    <!-- PROJECT JS -->
+    <script src="../js/data.js"></script>
+
+    <script src="../js/app.js"></script>
+
+    <script src="../js/components.js"></script>
+
+    <!-- FIREBASE CONFIG -->
+    <script src="../js/firebase-config.js"></script>
+
+    <!-- ADMIN DASHBOARD -->
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        console.log("[CyberAware] Admin page loading...");
+
+        // =====================================================
+        // AUTHORIZED ADMIN EMAILS
+        // =====================================================
+
+        const ADMIN_EMAILS = ["barathibanki07@gmail.com"];
+
+        // =====================================================
+        // APP ROOT
+        // =====================================================
+
+        const appRoot = document.getElementById("app-root");
+
+        // =====================================================
+        // FIREBASE CHECK
+        // =====================================================
+
+        if (!window.firebase || !window.firebaseApp) {
+          console.error("[CyberAware] Firebase is not initialized.");
+
+          appRoot.innerHTML = `
+            <div
+              style="
+                min-height:100vh;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                padding:2rem;
+              "
+            >
+              <div
+                class="card"
+                style="
+                  max-width:500px;
+                  text-align:center;
+                "
+              >
+                <div
+                  style="
+                    font-size:3rem;
+                    margin-bottom:1rem;
+                  "
+                >
+                  ⚠️
+                </div>
+
+                <h2>
+                  Firebase Error
+                </h2>
+
+                <p
+                  class="text-muted"
+                  style="margin-top:0.75rem"
+                >
+                  Firebase could not be initialized.
+                  Please check firebase-config.js.
+                </p>
+
+                <a
+                  href="login.html"
+                  class="btn btn-primary"
+                  style="margin-top:1rem"
+                >
+                  Back to Login
+                </a>
+              </div>
+            </div>
+          `;
+
+          return;
+        }
+
+        // =====================================================
+        // FIREBASE SERVICES
+        // =====================================================
+
+        const auth = firebase.auth();
+
+        const db = firebase.firestore();
+
+        // Current modules available to quiz functions
+        let adminModules = [];
+
+        console.log("[CyberAware] Firebase Auth ready.");
+
+        console.log("[CyberAware] Firestore ready.");
+
+        // =====================================================
+        // AUTH STATE
+        // =====================================================
+
+        auth.onAuthStateChanged(async function (user) {
+          // =================================================
+          // NO USER
+          // =================================================
+
+          if (!user) {
+            console.warn("[CyberAware] No authenticated user.");
+
+            window.location.href = "login.html";
+
+            return;
+          }
+
+          console.log("[CyberAware] Logged in:", user.email);
+
+          // =================================================
+          // RELOAD USER
+          // =================================================
+
+          try {
+            await user.reload();
+          } catch (error) {
+            console.error("[CyberAware] User reload failed:", error);
+          }
+
+          const currentUser = auth.currentUser;
+
+          if (!currentUser) {
+            window.location.href = "login.html";
+
+            return;
+          }
+
+          // =================================================
+          // EMAIL VERIFICATION
+          // =================================================
+
+          if (!currentUser.emailVerified) {
+            console.warn("[CyberAware] Admin email is not verified.");
+
+            await auth.signOut();
+
+            alert(
+              "Please verify your email before accessing the Admin Dashboard.",
+            );
+
+            window.location.href = "login.html";
+
+            return;
+          }
+
+          // =================================================
+          // NORMALIZE EMAIL
+          // =================================================
+
+          const loggedInEmail = (currentUser.email || "").trim().toLowerCase();
+
+          // =================================================
+          // ADMIN EMAIL CHECK
+          // =================================================
+
+          const isAdmin = ADMIN_EMAILS.map(function (email) {
+            return email.trim().toLowerCase();
+          }).includes(loggedInEmail);
+
+          console.log("[CyberAware] Admin email check:", isAdmin);
+
+          // =================================================
+          // ACCESS DENIED
+          // =================================================
+
+          if (!isAdmin) {
+            console.warn(
+              "[CyberAware] Unauthorized admin access:",
+              loggedInEmail,
+            );
+
+            await auth.signOut();
+
+            alert(
+              "Access denied. This account is not an authorized administrator.",
+            );
+
+            window.location.href = "login.html";
+
+            return;
+          }
+
+          // =================================================
+          // CHECK ADMIN FIRESTORE ROLE
+          // =================================================
+
+          try {
+            const adminRef = db.collection("users").doc(currentUser.uid);
+
+            const adminSnapshot = await adminRef.get();
+
+            if (!adminSnapshot.exists) {
+              console.warn(
+                "[CyberAware] Admin Firestore profile does not exist.",
+              );
+
+              await auth.signOut();
+
+              alert("Admin profile was not found in Firestore.");
+
+              window.location.href = "login.html";
+
+              return;
+            }
+
+            const adminData = adminSnapshot.data();
+
+            const adminRole = String(adminData.role || "")
+              .trim()
+              .toLowerCase();
+
+            console.log("[CyberAware] Firestore admin role:", adminRole);
+
+            if (adminRole !== "admin") {
+              console.warn("[CyberAware] Firestore role is not admin.");
+
+              await auth.signOut();
+
+              alert("Access denied. Your Firestore account role is not admin.");
+
+              window.location.href = "login.html";
+
+              return;
+            }
+          } catch (error) {
+            console.error("[CyberAware] Admin role check error:", error);
+
+            alert("Unable to verify admin role from Firestore.");
+
+            return;
+          }
+
+          // =================================================
+          // ADMIN VERIFIED
+          // =================================================
+
+          console.log("[CyberAware] Admin authentication successful.");
+
+          // =================================================
+          // LOAD DASHBOARD
+          // =================================================
+
+          await loadAdminDashboard(currentUser);
+        });
+
+        // =====================================================
+        // LOAD ADMIN DASHBOARD
+        // =====================================================
+
+        async function loadAdminDashboard(currentUser) {
+          // ===================================================
+          // LAYOUT
+          // ===================================================
+
+          Layout.base = "";
+
+          appRoot.innerHTML = `
+            <div class="app-shell">
+
+              ${Layout.adminSidebar()}
+
+              <div class="main-area">
+
+                ${Layout.topbar("Admin Console")}
+
+                <main
+                  class="page-content"
+                  id="page-main"
+                >
+
+                  <div
+                    style="
+                      min-height:60vh;
+                      display:flex;
+                      align-items:center;
+                      justify-content:center;
+                    "
+                  >
+
+                    <div style="text-align:center">
+
+                      <div class="spinner"></div>
+
+                      <p
+                        class="text-muted"
+                        style="margin-top:1rem"
+                      >
+                        Loading admin dashboard...
+                      </p>
+
+                    </div>
+
+                  </div>
+
+                </main>
+
+              </div>
+
+            </div>
+          `;
+
+          // ===================================================
+          // INITIALIZE APP
+          // ===================================================
+
+          try {
+            App.init();
+          } catch (error) {
+            console.error("[CyberAware] App initialization error:", error);
+          }
+
+          // ===================================================
+          // NOTIFICATIONS
+          // ===================================================
+
+          try {
+            Layout.renderNotifs();
+          } catch (error) {
+            console.warn("[CyberAware] Notification rendering skipped.", error);
+          }
+
+          // ===================================================
+          // ADMIN AVATAR
+          // ===================================================
+
+          const avatar = document.querySelector(".avatar");
+
+          if (avatar) {
+            avatar.textContent = "AD";
+
+            avatar.title = currentUser.email;
+          }
+
+          // ===================================================
+          // LOAD STUDENTS
+          // ===================================================
+
+          let students = [];
+
+          try {
+            console.log("[CyberAware] Loading students from Firestore...");
+
+            const snapshot = await db.collection("users").get();
+
+            console.log("[CyberAware] Total user documents:", snapshot.size);
+
+            snapshot.forEach(function (doc) {
+              const data = doc.data();
+
+              const userRole = String(data.role || "student")
+                .trim()
+                .toLowerCase();
+
+              if (userRole !== "student") {
+                return;
+              }
+
+              students.push({
+                uid: data.uid || doc.id,
+
+                name: data.name || data.displayName || "Unknown Student",
+
+                email: data.email || "No email",
+
+                role: userRole,
+
+                awarenessScore: Number(data.awarenessScore || 0),
+
+                modulesCompleted: Number(data.modulesCompleted || 0),
+
+                quizzesCompleted: Number(data.quizzesCompleted || 0),
+
+                certificates: Number(data.certificates || 0),
+
+                streak: Number(data.streak || 0),
+
+                securityLevel: data.securityLevel || "Beginner",
+
+                emailVerified: data.emailVerified === true,
+
+                createdAt: data.createdAt || null,
+              });
+            });
+
+            console.log("[CyberAware] Students loaded:", students.length);
+          } catch (error) {
+            console.error(
+              "[CyberAware] Firestore student loading error:",
+              error,
+            );
+
+            App.toast("Could not load students from Firestore.", "error");
+          }
+
+          // ===================================================
+          // LOAD REPORTS
+          // ===================================================
+
+          let reports = [];
+
+          try {
+            console.log("[CyberAware] Loading scam reports from Firestore...");
+
+            const reportSnapshot = await db.collection("alertWall").get();
+
+            console.log("[CyberAware] Total reports:", reportSnapshot.size);
+
+            reportSnapshot.forEach(function (doc) {
+              const data = doc.data();
+
+              const verified = data.verified === true;
+
+              const status = String(data.status || "")
+                .trim()
+                .toLowerCase();
+
+              reports.push({
+                id: doc.id,
+
+                uid: data.uid || "Unknown",
+
+                title: data.title || "Untitled Scam Report",
+
+                body: data.body || data.description || "",
+
+                category: data.category || "General Scam",
+
+                risk: data.risk || data.riskLevel || "Unknown",
+
+                riskScore: Number(data.riskScore || 0),
+
+                author: data.author || data.name || "Anonymous",
+
+                college: data.college || "",
+
+                verified: verified,
+
+                status: status || (verified ? "verified" : "pending"),
+
+                createdAt: data.createdAt || null,
+              });
+            });
+
+            console.log("[CyberAware] Reports loaded:", reports.length);
+          } catch (error) {
+            console.error(
+              "[CyberAware] Firestore report loading error:",
+              error,
+            );
+
+            App.toast("Could not load scam reports from Firebase.", "error");
+          }
+
+          // ===================================================
+          // PENDING REPORTS
+          // ===================================================
+
+          const pending = reports.filter(function (report) {
+            return !report.verified && report.status !== "rejected";
+          });
+
+          // ===================================================
+          // LOAD LEARNING MODULES
+          // ===================================================
+
+          let modules = [];
+
+          try {
+            console.log(
+              "[CyberAware] Loading learning modules from Firestore...",
+            );
+
+            const moduleSnapshot = await db.collection("learningModules").get();
+
+            console.log("[CyberAware] Firebase modules:", moduleSnapshot.size);
+
+            moduleSnapshot.forEach(function (doc) {
+              const data = doc.data();
+
+              modules.push({
+                id: data.id || doc.id,
+
+                title: data.title || "Untitled Module",
+
+                description: data.description || "",
+
+                category: data.category || "General",
+
+                duration: data.duration || "10 min",
+
+                icon: data.icon || "📚",
+
+                order: Number(data.order || 0),
+
+                published: data.published === true,
+
+                createdAt: data.createdAt || null,
+
+                updatedAt: data.updatedAt || null,
+              });
+            });
+
+            modules.sort(function (a, b) {
+              return a.order - b.order;
+            });
+
+            // Make modules available to quiz functions
+            adminModules = modules;
+
+            console.log(
+              "[CyberAware] Learning modules loaded:",
+              modules.length,
+            );
+          } catch (error) {
+            console.error("[CyberAware] Learning module loading error:", error);
+
+            App.toast("Could not load learning modules.", "error");
+          }
+
+          // ===================================================
+          // LOAD QUIZ QUESTIONS
+          // ===================================================
+
+          let quizQuestions = [];
+
+          try {
+            console.log(
+              "[CyberAware] Loading quiz questions from Firestore...",
+            );
+
+            const quizSnapshot = await db.collection("quizQuestions").get();
+
+            console.log(
+              "[CyberAware] Firebase quiz questions:",
+              quizSnapshot.size,
+            );
+
+            quizSnapshot.forEach(function (doc) {
+              const data = doc.data();
+
+              const options = Array.isArray(data.options)
+                ? data.options
+                : ["", "", "", ""];
+
+              quizQuestions.push({
+                id: doc.id,
+
+                moduleId: data.moduleId || "",
+
+                question: data.question || "",
+
+                options: [
+                  options[0] || "",
+                  options[1] || "",
+                  options[2] || "",
+                  options[3] || "",
+                ],
+
+                correctIndex: Number(data.correctIndex || 0),
+
+                explanation: data.explanation || "",
+
+                order: Number(data.order || 0),
+
+                published: data.published === true,
+
+                createdAt: data.createdAt || null,
+
+                updatedAt: data.updatedAt || null,
+              });
+            });
+
+            quizQuestions.sort(function (a, b) {
+              return a.order - b.order;
+            });
+
+            console.log(
+              "[CyberAware] Quiz questions loaded:",
+              quizQuestions.length,
+            );
+          } catch (error) {
+            console.error("[CyberAware] Quiz question loading error:", error);
+
+            App.toast("Could not load quiz questions.", "error");
+          }
+
+          // ===================================================
+          // LOAD ANNOUNCEMENTS
+          // ===================================================
+
+          let announcements = [];
+
+          try {
+            console.log("[CyberAware] Loading announcements from Firestore...");
+
+            const announcementSnapshot = await db
+              .collection("announcements")
+              .get();
+
+            console.log(
+              "[CyberAware] Firebase announcements:",
+              announcementSnapshot.size,
+            );
+
+            announcementSnapshot.forEach(function (doc) {
+              const data = doc.data();
+
+              announcements.push({
+                id: doc.id,
+                text: data.text || "",
+                published: data.published === true,
+                createdAt: data.createdAt || null,
+                createdBy: data.createdBy || "",
+                createdByEmail: data.createdByEmail || "",
+              });
+            });
+
+            announcements.sort(function (a, b) {
+              const aTime =
+                a.createdAt && a.createdAt.toMillis
+                  ? a.createdAt.toMillis()
+                  : 0;
+              const bTime =
+                b.createdAt && b.createdAt.toMillis
+                  ? b.createdAt.toMillis()
+                  : 0;
+
+              return bTime - aTime;
+            });
+
+            console.log(
+              "[CyberAware] Announcements loaded:",
+              announcements.length,
+            );
+          } catch (error) {
+            console.error("[CyberAware] Announcement loading error:", error);
+
+            App.toast("Could not load announcements from Firebase.", "error");
+          }
+
+          // ===================================================
+          // PAGE MAIN
+          // ===================================================
+
+          const pageMain = document.getElementById("page-main");
+
+          if (!pageMain) {
+            console.error("[CyberAware] page-main not found.");
+
+            return;
+          }
+
+          // ===================================================
+          // DASHBOARD HTML
+          // ===================================================
+
+          pageMain.innerHTML = `
+            <!-- PAGE HEADER -->
+
+            <div
+              class="
+                page-header
+                animate-in
+              "
+            >
+
+              <h1>
+                Admin Dashboard
+              </h1>
+
+              <p>
+                Manage students, verify scam reports,
+                modules, quizzes, and campus announcements.
+              </p>
+
+              <p
+                class="
+                  text-xs
+                  text-muted
+                  mt-2
+                "
+              >
+                Logged in as:
+
+                <strong>
+                  ${escapeHtml(currentUser.email || "")}
+                </strong>
+              </p>
+
+            </div>
+
+
+            <!-- STATISTICS -->
+
+            <div
+              class="stats-grid"
+              style="margin-bottom:1.5rem"
+            >
+
+              <!-- STUDENTS -->
+
+              <div class="card stat-card">
+
+                <div class="stat-icon">
+                  👥
+                </div>
+
+                <div
+                  class="stat-value"
+                  id="student-count"
+                >
+                  ${students.length}
+                </div>
+
+                <div class="stat-label">
+                  Registered Students
+                </div>
+
+              </div>
+
+
+              <!-- REPORTS -->
+
+              <div class="card stat-card">
+
+                <div class="stat-icon">
+                  🚨
+                </div>
+
+                <div
+                  class="stat-value"
+                  id="pending-report-count"
+                >
+                  ${pending.length}
+                </div>
+
+                <div class="stat-label">
+                  Pending Reports
+                </div>
+
+              </div>
+
+
+              <!-- MODULES -->
+
+              <div class="card stat-card">
+
+                <div class="stat-icon">
+                  📚
+                </div>
+
+                <div
+                  class="stat-value"
+                  id="module-count"
+                >
+                  ${modules.length}
+                </div>
+
+                <div class="stat-label">
+                  Learning Modules
+                </div>
+
+              </div>
+
+
+              <!-- QUIZ COUNT -->
+
+              <div class="card stat-card">
+
+                <div class="stat-icon">
+                  📝
+                </div>
+
+                <div
+                  class="stat-value"
+                  id="quiz-count"
+                >
+                  ${quizQuestions.length}
+                </div>
+
+                <div class="stat-label">
+                  Quiz Questions
+                </div>
+
+              </div>
+
+
+              <!-- AWARENESS -->
+
+              <div class="card stat-card">
+
+                <div class="stat-icon">
+                  📊
+                </div>
+
+                <div
+                  class="stat-value"
+                  id="average-awareness"
+                >
+                  ${calculateAverageScore(students)}%
+                </div>
+
+                <div class="stat-label">
+                  Avg Awareness
+                </div>
+
+              </div>
+
+            </div>
+
+
+            <!-- MANAGE STUDENTS -->
+
+            <section
+              id="students"
+              class="card card-static mb-4"
+            >
+
+              <div
+                class="
+                  flex
+                  justify-between
+                  items-center
+                  mb-3
+                  flex-wrap
+                  gap-2
+                "
+              >
+
+                <div>
+
+                  <h3>
+                    Manage Students
+                  </h3>
+
+                  <p
+                    class="
+                      text-xs
+                      text-muted
+                    "
+                    style="margin-top:0.25rem"
+                  >
+                    Students registered through
+                    Firebase Authentication + Firestore
+                  </p>
+
+                </div>
+
+
+                <div class="search-bar">
+
+                  <span>
+                    🔍
+                  </span>
+
+                  <input
+                    id="student-search"
+                    type="search"
+                    placeholder="Search name, email or UID…"
+                  />
+
+                </div>
+
+              </div>
+
+
+              <div class="table-wrap">
+
+                <table class="data-table">
+
+                  <thead>
+
+                    <tr>
+
+                      <th>
+                        UID
+                      </th>
+
+                      <th>
+                        Student
+                      </th>
+
+                      <th>
+                        Email
+                      </th>
+
+                      <th>
+                        Score
+                      </th>
+
+                      <th>
+                        Quizzes
+                      </th>
+
+                      <th>
+                        Modules
+                      </th>
+
+                      <th>
+                        Verification
+                      </th>
+
+                      <th>
+                        Actions
+                      </th>
+
+                    </tr>
+
+                  </thead>
+
+
+                  <tbody
+                    id="students-table-body"
+                  >
+                    ${renderStudents(students)}
+                  </tbody>
+
+                </table>
+
+              </div>
+
+            </section>
+
+
+            <!-- REPORTS + MODULES -->
+
+            <div
+              class="grid-2"
+              style="margin-bottom:1.5rem"
+            >
+
+              <!-- REPORTS -->
+
+              <section
+                id="reports"
+                class="card card-static"
+              >
+
+                <div
+                  class="
+                    flex
+                    justify-between
+                    items-center
+                    mb-3
+                    flex-wrap
+                    gap-2
+                  "
+                >
+
+                  <div>
+
+                    <h3>
+                      Verify Scam Reports
+                    </h3>
+
+                    <p
+                      class="
+                        text-xs
+                        text-muted
+                      "
+                      style="margin-top:0.25rem"
+                    >
+                      Reports submitted by students
+                      through the Scam Alert Wall
+                    </p>
+
+                  </div>
+
+
+                  <span
+                    class="
+                      badge
+                      badge-warning
+                    "
+                  >
+                    ${pending.length}
+                    Pending
+                  </span>
+
+                </div>
+
+
+                ${
+                  pending.length > 0
+                    ? pending
+                        .slice(0, 10)
+                        .map(function (report) {
+                          return `
+                              <div
+                                class="report-item"
+                                data-report-id="${escapeHtml(report.id)}"
+                                style="
+                                  padding:1rem;
+                                  border:1px solid var(--border);
+                                  border-radius:12px;
+                                  margin-bottom:0.75rem;
+                                "
+                              >
+
+                                <div
+                                  class="
+                                    flex
+                                    justify-between
+                                    gap-2
+                                    flex-wrap
+                                    mb-2
+                                  "
+                                >
+
+                                  <strong class="text-sm">
+                                    ${escapeHtml(report.title)}
+                                  </strong>
+
+                                  <span
+                                    class="
+                                      badge
+                                      badge-warning
+                                    "
+                                  >
+                                    Pending
+                                  </span>
+
+                                </div>
+
+
+                                <p
+                                  class="
+                                    text-xs
+                                    text-muted
+                                    mb-2
+                                  "
+                                >
+                                  ${escapeHtml(report.body)}
+                                </p>
+
+
+                                <div
+                                  class="
+                                    text-xs
+                                    text-muted
+                                    mb-3
+                                  "
+                                >
+
+                                  <div>
+                                    👤 Reporter:
+                                    <strong>
+                                      ${escapeHtml(report.author)}
+                                    </strong>
+                                  </div>
+
+
+                                  ${
+                                    report.college
+                                      ? `
+                                        <div>
+                                          🏫 College:
+                                          ${escapeHtml(report.college)}
+                                        </div>
+                                      `
+                                      : ""
+                                  }
+
+
+                                  <div>
+                                    🏷️ Category:
+                                    ${escapeHtml(report.category)}
+                                  </div>
+
+
+                                  <div>
+                                    ⚠️ Risk:
+                                    <strong>
+                                      ${escapeHtml(report.risk)}
+                                    </strong>
+
+                                    ${
+                                      report.riskScore
+                                        ? `(${report.riskScore}%)`
+                                        : ""
+                                    }
+                                  </div>
+
+
+                                  <div>
+                                    🆔 UID:
+                                    <span
+                                      class="font-mono"
+                                    >
+                                      ${escapeHtml(report.uid)}
+                                    </span>
+                                  </div>
+
+                                </div>
+
+
+                                <div
+                                  class="
+                                    flex
+                                    gap-2
+                                    flex-wrap
+                                  "
+                                >
+
+                                  <button
+                                    class="
+                                      btn
+                                      btn-success
+                                      btn-sm
+                                    "
+                                    data-firebase-approve="${escapeHtml(
+                                      report.id,
+                                    )}"
+                                  >
+                                    ✓ Verify & Publish
+                                  </button>
+
+
+                                  <button
+                                    class="
+                                      btn
+                                      btn-danger
+                                      btn-sm
+                                    "
+                                    data-firebase-reject="${escapeHtml(
+                                      report.id,
+                                    )}"
+                                  >
+                                    ✕ Reject
+                                  </button>
+
+                                </div>
+
+                              </div>
+                            `;
+                        })
+                        .join("")
+                    : `
+                      <div
+                        style="
+                          padding:2rem;
+                          text-align:center;
+                        "
+                      >
+
+                        <div
+                          style="
+                            font-size:2rem;
+                            margin-bottom:0.5rem;
+                          "
+                        >
+                          ✅
+                        </div>
+
+                        <p class="text-sm">
+                          No pending scam reports.
+                        </p>
+
+                        <p
+                          class="
+                            text-xs
+                            text-muted
+                          "
+                        >
+                          New student reports will
+                          appear here.
+                        </p>
+
+                      </div>
+                    `
+                }
+
+              </section>
+
+
+              <!-- LEARNING MODULES -->
+
+              <section
+                id="modules"
+                class="card card-static"
+              >
+
+                <div
+                  class="
+                    flex
+                    justify-between
+                    items-center
+                    mb-3
+                    flex-wrap
+                    gap-2
+                  "
+                >
+
+                  <div>
+
+                    <h3>
+                      Manage Learning Modules
+                    </h3>
+
+                    <p
+                      class="
+                        text-xs
+                        text-muted
+                      "
+                      style="margin-top:0.25rem"
+                    >
+                      Modules stored in Firebase
+                    </p>
+
+                  </div>
+
+
+                  <div
+                    class="
+                      flex
+                      gap-2
+                      flex-wrap
+                    "
+                  >
+
+                    ${
+                      modules.length === 0
+                        ? `
+                          <button
+                            class="
+                              btn
+                              btn-secondary
+                              btn-sm
+                            "
+                            id="seed-modules"
+                          >
+                            🌱 Load Default Modules
+                          </button>
+                        `
+                        : ""
+                    }
+
+
+                    <button
+                      class="
+                        btn
+                        btn-primary
+                        btn-sm
+                      "
+                      id="add-module"
+                    >
+                      + Add Module
+                    </button>
+
+                  </div>
+
+                </div>
+
+
+                ${
+                  modules.length > 0
+                    ? `
+                      <div id="module-list">
+                        ${renderModules(modules)}
+                      </div>
+                    `
+                    : `
+                      <div
+                        style="
+                          padding:2rem;
+                          text-align:center;
+                        "
+                      >
+
+                        <div
+                          style="
+                            font-size:2.5rem;
+                            margin-bottom:0.5rem;
+                          "
+                        >
+                          📚
+                        </div>
+
+                        <p class="text-sm">
+                          No Firebase learning modules found.
+                        </p>
+
+                        <p
+                          class="
+                            text-xs
+                            text-muted
+                            mt-1
+                          "
+                        >
+                          Click "Load Default Modules"
+                          to add the 8 CyberAware modules.
+                        </p>
+
+                      </div>
+                    `
+                }
+
+              </section>
+
+            </div>
+
+
+            <!-- QUIZ + ANNOUNCEMENTS -->
+
+            <div
+              class="grid-2"
+              style="margin-bottom:1.5rem"
+            >
+
+              <!-- QUIZ -->
+
+              <section
+                id="quiz"
+                class="card card-static"
+              >
+
+                <div
+                  class="
+                    flex
+                    justify-between
+                    items-center
+                    mb-3
+                    flex-wrap
+                    gap-2
+                  "
+                >
+
+                  <div>
+
+                    <h3>
+                      Manage Quiz Questions
+                    </h3>
+
+                    <p
+                      class="
+                        text-xs
+                        text-muted
+                        mt-1
+                      "
+                    >
+                      Quiz questions stored in Firebase
+                    </p>
+
+                  </div>
+
+
+                  <div
+                    class="
+                      flex
+                      gap-2
+                      flex-wrap
+                    "
+                  >
+
+                    <button
+                      type="button"
+                      class="
+                        btn
+                        btn-secondary
+                        btn-sm
+                      "
+                      id="reload-questions"
+                    >
+                      ↻ Reload
+                    </button>
+
+
+                    <button
+                      type="button"
+                      class="
+                        btn
+                        btn-primary
+                        btn-sm
+                      "
+                      id="add-question"
+                    >
+                      + Add Question
+                    </button>
+
+                  </div>
+
+                </div>
+
+
+                <div id="quiz-question-list">
+
+                  ${renderQuizQuestions(quizQuestions, modules)}
+
+                </div>
+
+              </section>
+
+
+              <!-- ANNOUNCEMENTS -->
+
+              <section
+                id="announcements"
+                class="card card-static"
+              >
+
+                <h3 class="mb-3">
+                  Announcements
+                </h3>
+
+
+                <div class="form-group">
+
+                  <label
+                    class="form-label"
+                    for="announce"
+                  >
+                    New campus announcement
+                  </label>
+
+
+                  <textarea
+                    class="form-textarea"
+                    id="announce"
+                    placeholder="Alert students about a new trending scam…"
+                  ></textarea>
+
+                </div>
+
+
+                <button
+                  class="btn btn-primary"
+                  id="post-announce"
+                >
+                  Publish Announcement
+                </button>
+
+
+                <div
+                  class="mt-4"
+                  id="announcement-list"
+                >
+                  ${renderAnnouncements(announcements)}
+                </div>
+
+              </section>
+
+            </div>
+
+
+            <!-- REPORTS & EXPORTS -->
+
+            <section
+              class="card card-static"
+            >
+
+              <div
+                class="
+                  flex
+                  justify-between
+                  items-center
+                  mb-3
+                "
+              >
+
+                <h3>
+                  Reports & Exports
+                </h3>
+
+
+                <a
+                  href="analytics.html"
+                  class="
+                    btn
+                    btn-secondary
+                    btn-sm
+                  "
+                >
+                  Open Analytics →
+                </a>
+
+              </div>
+
+
+              <div class="grid-3">
+
+                <button
+                  class="btn btn-secondary"
+                  id="export-students"
+                >
+                  Export Student Scores
+                </button>
+
+
+
+
+
+              </div>
+
+            </section>
+
+
+            <!-- ================================================= -->
+            <!-- MODULE MODAL -->
+            <!-- ================================================= -->
+
+            <div
+              id="module-modal"
+              style="
+                display:none;
+                position:fixed;
+                inset:0;
+                z-index:9999;
+                background:rgba(0,0,0,0.75);
+                align-items:center;
+                justify-content:center;
+                padding:1rem;
+              "
+            >
+
+              <div
+                class="card"
+                style="
+                  width:100%;
+                  max-width:600px;
+                  max-height:90vh;
+                  overflow-y:auto;
+                "
+              >
+
+                <div
+                  class="
+                    flex
+                    justify-between
+                    items-center
+                    mb-4
+                  "
+                >
+
+                  <div>
+
+                    <h3 id="module-modal-title">
+                      Add Learning Module
+                    </h3>
+
+                    <p
+                      class="
+                        text-xs
+                        text-muted
+                        mt-1
+                      "
+                    >
+                      Manage the module content shown to students.
+                    </p>
+
+                  </div>
+
+
+                  <button
+                    type="button"
+                    class="
+                      btn
+                      btn-ghost
+                      btn-sm
+                    "
+                    id="close-module-modal"
+                  >
+                    ✕
+                  </button>
+
+                </div>
+
+
+                <form id="module-form">
+
+                  <input
+                    type="hidden"
+                    id="module-id"
+                  />
+
+
+                  <div class="form-group">
+
+                    <label
+                      class="form-label"
+                      for="module-title"
+                    >
+                      Module Title
+                    </label>
+
+                    <input
+                      class="form-input"
+                      id="module-title"
+                      type="text"
+                      placeholder="Example: Fake News"
+                      required
+                    />
+
+                  </div>
+
+
+                  <div class="form-group">
+
+                    <label
+                      class="form-label"
+                      for="module-description"
+                    >
+                      Description
+                    </label>
+
+                    <textarea
+                      class="form-textarea"
+                      id="module-description"
+                      rows="4"
+                      placeholder="Describe what students will learn..."
+                      required
+                    ></textarea>
+
+                  </div>
+
+
+                  <div class="form-group">
+
+                    <label
+                      class="form-label"
+                      for="module-category"
+                    >
+                      Category
+                    </label>
+
+                    <input
+                      class="form-input"
+                      id="module-category"
+                      type="text"
+                      placeholder="Cyber Security"
+                      required
+                    />
+
+                  </div>
+
+
+                  <div class="form-group">
+
+                    <label
+                      class="form-label"
+                      for="module-duration"
+                    >
+                      Duration
+                    </label>
+
+                    <input
+                      class="form-input"
+                      id="module-duration"
+                      type="text"
+                      placeholder="10 min"
+                      required
+                    />
+
+                  </div>
+
+
+                  <div class="form-group">
+
+                    <label
+                      class="form-label"
+                      for="module-icon"
+                    >
+                      Icon
+                    </label>
+
+                    <input
+                      class="form-input"
+                      id="module-icon"
+                      type="text"
+                      placeholder="📰"
+                      required
+                    />
+
+                  </div>
+
+
+                  <div class="form-group">
+
+                    <label
+                      class="form-label"
+                      for="module-order"
+                    >
+                      Display Order
+                    </label>
+
+                    <input
+                      class="form-input"
+                      id="module-order"
+                      type="number"
+                      min="1"
+                      value="1"
+                      required
+                    />
+
+                  </div>
+
+
+                  <div
+                    class="
+                      flex
+                      items-center
+                      gap-2
+                      mb-4
+                    "
+                  >
+
+                    <input
+                      type="checkbox"
+                      id="module-published"
+                    />
+
+                    <label
+                      for="module-published"
+                      class="text-sm"
+                    >
+                      Publish this module for students
+                    </label>
+
+                  </div>
+
+
+                  <div
+                    class="
+                      flex
+                      justify-end
+                      gap-2
+                      flex-wrap
+                    "
+                  >
+
+                    <button
+                      type="button"
+                      class="btn btn-secondary"
+                      id="cancel-module"
+                    >
+                      Cancel
+                    </button>
+
+
+                    <button
+                      type="submit"
+                      class="btn btn-primary"
+                      id="save-module"
+                    >
+                      Save Module
+                    </button>
+
+                  </div>
+
+                </form>
+
+              </div>
+
+            </div>
+
+
+            <!-- ================================================= -->
+            <!-- QUIZ QUESTION MODAL -->
+            <!-- ================================================= -->
+
+            <div
+              id="quiz-modal"
+              style="
+                display:none;
+                position:fixed;
+                inset:0;
+                z-index:10000;
+                background:rgba(0,0,0,0.75);
+                align-items:center;
+                justify-content:center;
+                padding:1rem;
+              "
+            >
+
+              <div
+                class="card"
+                style="
+                  width:100%;
+                  max-width:650px;
+                  max-height:90vh;
+                  overflow-y:auto;
+                "
+              >
+
+                <div
+                  class="
+                    flex
+                    justify-between
+                    items-center
+                    mb-4
+                  "
+                >
+
+                  <div>
+
+                    <h3 id="quiz-modal-title">
+                      Add Quiz Question
+                    </h3>
+
+                    <p
+                      class="
+                        text-xs
+                        text-muted
+                        mt-1
+                      "
+                    >
+                      Add a question for a CyberAware learning module.
+                    </p>
+
+                  </div>
+
+
+                  <button
+                    type="button"
+                    class="
+                      btn
+                      btn-ghost
+                      btn-sm
+                    "
+                    id="close-quiz-modal"
+                  >
+                    ✕
+                  </button>
+
+                </div>
+
+
+                <form id="quiz-form">
+
+                  <!-- QUIZ ID -->
+
+                  <input
+                    type="hidden"
+                    id="quiz-id"
+                  />
+
+
+                  <!-- MODULE -->
+
+                  <div class="form-group">
+
+                    <label
+                      class="form-label"
+                      for="quiz-module"
+                    >
+                      Learning Module
+                    </label>
+
+                    <select
+                      class="form-input"
+                      id="quiz-module"
+                      required
+                    >
+
+                      <option value="">
+                        Select Module
+                      </option>
+
+                    </select>
+
+                  </div>
+
+
+                  <!-- QUESTION -->
+
+                  <div class="form-group">
+
+                    <label
+                      class="form-label"
+                      for="quiz-question"
+                    >
+                      Question
+                    </label>
+
+                    <textarea
+                      class="form-textarea"
+                      id="quiz-question"
+                      rows="4"
+                      placeholder="Enter the quiz question..."
+                      required
+                    ></textarea>
+
+                  </div>
+
+
+                  <!-- OPTION 1 -->
+
+                  <div class="form-group">
+
+                    <label
+                      class="form-label"
+                      for="quiz-option-0"
+                    >
+                      Option 1
+                    </label>
+
+                    <input
+                      class="form-input"
+                      id="quiz-option-0"
+                      type="text"
+                      placeholder="Enter option 1"
+                      required
+                    />
+
+                  </div>
+
+
+                  <!-- OPTION 2 -->
+
+                  <div class="form-group">
+
+                    <label
+                      class="form-label"
+                      for="quiz-option-1"
+                    >
+                      Option 2
+                    </label>
+
+                    <input
+                      class="form-input"
+                      id="quiz-option-1"
+                      type="text"
+                      placeholder="Enter option 2"
+                      required
+                    />
+
+                  </div>
+
+
+                  <!-- OPTION 3 -->
+
+                  <div class="form-group">
+
+                    <label
+                      class="form-label"
+                      for="quiz-option-2"
+                    >
+                      Option 3
+                    </label>
+
+                    <input
+                      class="form-input"
+                      id="quiz-option-2"
+                      type="text"
+                      placeholder="Enter option 3"
+                      required
+                    />
+
+                  </div>
+
+
+                  <!-- OPTION 4 -->
+
+                  <div class="form-group">
+
+                    <label
+                      class="form-label"
+                      for="quiz-option-3"
+                    >
+                      Option 4
+                    </label>
+
+                    <input
+                      class="form-input"
+                      id="quiz-option-3"
+                      type="text"
+                      placeholder="Enter option 4"
+                      required
+                    />
+
+                  </div>
+
+
+                  <!-- CORRECT ANSWER -->
+
+                  <div class="form-group">
+
+                    <label
+                      class="form-label"
+                      for="quiz-correct"
+                    >
+                      Correct Answer
+                    </label>
+
+                    <select
+                      class="form-input"
+                      id="quiz-correct"
+                      required
+                    >
+
+                      <option value="0">
+                        Option 1
+                      </option>
+
+                      <option value="1">
+                        Option 2
+                      </option>
+
+                      <option value="2">
+                        Option 3
+                      </option>
+
+                      <option value="3">
+                        Option 4
+                      </option>
+
+                    </select>
+
+                  </div>
+
+
+                  <!-- EXPLANATION -->
+
+                  <div class="form-group">
+
+                    <label
+                      class="form-label"
+                      for="quiz-explanation"
+                    >
+                      Explanation
+                    </label>
+
+                    <textarea
+                      class="form-textarea"
+                      id="quiz-explanation"
+                      rows="3"
+                      placeholder="Explain why the answer is correct..."
+                    ></textarea>
+
+                  </div>
+
+
+                  <!-- ORDER -->
+
+                  <div class="form-group">
+
+                    <label
+                      class="form-label"
+                      for="quiz-order"
+                    >
+                      Display Order
+                    </label>
+
+                    <input
+                      class="form-input"
+                      id="quiz-order"
+                      type="number"
+                      min="1"
+                      value="1"
+                      required
+                    />
+
+                  </div>
+
+
+                  <!-- PUBLISHED -->
+
+                  <div
+                    class="
+                      flex
+                      items-center
+                      gap-2
+                      mb-4
+                    "
+                  >
+
+                    <input
+                      type="checkbox"
+                      id="quiz-published"
+                    />
+
+                    <label
+                      for="quiz-published"
+                      class="text-sm"
+                    >
+                      Publish this question for students
+                    </label>
+
+                  </div>
+
+
+                  <!-- BUTTONS -->
+
+                  <div
+                    class="
+                      flex
+                      justify-end
+                      gap-2
+                      flex-wrap
+                    "
+                  >
+
+                    <button
+                      type="button"
+                      class="btn btn-secondary"
+                      id="cancel-quiz"
+                    >
+                      Cancel
+                    </button>
+
+
+                    <button
+                      type="submit"
+                      class="btn btn-primary"
+                      id="save-quiz"
+                    >
+                      Save Question
+                    </button>
+
+                  </div>
+
+                </form>
+
+              </div>
+
+            </div>
+          `;
+
+          // ===================================================
+          // STUDENT SEARCH
+          // ===================================================
+
+          const searchInput = document.getElementById("student-search");
+
+          if (searchInput) {
+            searchInput.addEventListener("input", function () {
+              const query = searchInput.value.trim().toLowerCase();
+
+              const filtered = students.filter(function (student) {
+                return (
+                  (student.name || "").toLowerCase().includes(query) ||
+                  (student.email || "").toLowerCase().includes(query) ||
+                  (student.uid || "").toLowerCase().includes(query)
+                );
+              });
+
+              document.getElementById("students-table-body").innerHTML =
+                renderStudents(filtered);
+            });
+          }
+
+          // ===================================================
+          // FIREBASE REPORT APPROVE
+          // ===================================================
+
+          document
+            .querySelectorAll("[data-firebase-approve]")
+            .forEach(function (button) {
+              button.onclick = async function () {
+                const reportId = button.dataset.firebaseApprove;
+
+                if (!reportId) {
+                  App.toast("Invalid report ID.", "error");
+
+                  return;
+                }
+
+                const originalText = button.textContent;
+
+                button.disabled = true;
+
+                button.textContent = "Verifying...";
+
+                try {
+                  await db.collection("alertWall").doc(reportId).update({
+                    verified: true,
+
+                    status: "verified",
+
+                    verifiedBy: currentUser.uid,
+
+                    verifiedByEmail: currentUser.email,
+
+                    verifiedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                  });
+
+                  App.toast(
+                    "Report verified and published to Alert Wall.",
+                    "success",
+                  );
+
+                  const reportContainer = button.closest(".report-item");
+
+                  if (reportContainer) {
+                    reportContainer.innerHTML = `
+                          <div
+                            style="
+                              padding:0.5rem 0;
+                            "
+                          >
+
+                            <span
+                              class="
+                                badge
+                                badge-success
+                              "
+                            >
+                              ✓ Verified
+                            </span>
+
+                            <p
+                              class="
+                                text-xs
+                                text-muted
+                                mt-2
+                              "
+                            >
+                              Published on Alert Wall
+                            </p>
+
+                          </div>
+                        `;
+                  }
+
+                  const pendingCount = document.getElementById(
+                    "pending-report-count",
+                  );
+
+                  if (pendingCount) {
+                    const current = Number(pendingCount.textContent) || 0;
+
+                    pendingCount.textContent = Math.max(0, current - 1);
+                  }
+                } catch (error) {
+                  console.error(
+                    "[CyberAware] Report verification error:",
+                    error,
+                  );
+
+                  App.toast("Could not verify report.", "error");
+
+                  button.disabled = false;
+
+                  button.textContent = originalText;
+                }
+              };
+            });
+
+          // ===================================================
+          // FIREBASE REPORT REJECT
+          // ===================================================
+
+          document
+            .querySelectorAll("[data-firebase-reject]")
+            .forEach(function (button) {
+              button.onclick = async function () {
+                const reportId = button.dataset.firebaseReject;
+
+                if (!reportId) {
+                  App.toast("Invalid report ID.", "error");
+
+                  return;
+                }
+
+                const confirmed = confirm(
+                  "Are you sure you want to reject this scam report?",
+                );
+
+                if (!confirmed) {
+                  return;
+                }
+
+                const originalText = button.textContent;
+
+                button.disabled = true;
+
+                button.textContent = "Rejecting...";
+
+                try {
+                  await db.collection("alertWall").doc(reportId).update({
+                    verified: false,
+
+                    status: "rejected",
+
+                    rejectedBy: currentUser.uid,
+
+                    rejectedByEmail: currentUser.email,
+
+                    rejectedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                  });
+
+                  App.toast("Report rejected successfully.", "warning");
+
+                  const reportContainer = button.closest(".report-item");
+
+                  if (reportContainer) {
+                    reportContainer.innerHTML = `
+                          <div
+                            style="
+                              padding:0.5rem 0;
+                            "
+                          >
+
+                            <span
+                              class="
+                                badge
+                                badge-danger
+                              "
+                            >
+                              ✕ Rejected
+                            </span>
+
+                            <p
+                              class="
+                                text-xs
+                                text-muted
+                                mt-2
+                              "
+                            >
+                              This report will not appear
+                              on the public Alert Wall.
+                            </p>
+
+                          </div>
+                        `;
+                  }
+
+                  const pendingCount = document.getElementById(
+                    "pending-report-count",
+                  );
+
+                  if (pendingCount) {
+                    const current = Number(pendingCount.textContent) || 0;
+
+                    pendingCount.textContent = Math.max(0, current - 1);
+                  }
+                } catch (error) {
+                  console.error("[CyberAware] Report rejection error:", error);
+
+                  App.toast("Could not reject report.", "error");
+
+                  button.disabled = false;
+
+                  button.textContent = originalText;
+                }
+              };
+            });
+
+          // ===================================================
+          // LEARNING MODULE EVENTS
+          // ===================================================
+
+          initializeModuleEvents(modules, currentUser);
+
+          // ===================================================
+          // QUIZ EVENTS
+          // ===================================================
+
+          initializeQuizEvents(quizQuestions, modules);
+
+          // Attach the quiz form submit handler after the modal HTML exists.
+          initializeQuizForm();
+
+          // ===================================================
+          // ANNOUNCEMENT
+          // ===================================================
+
+          const announceBtn = document.getElementById("post-announce");
+
+          if (announceBtn) {
+            announceBtn.onclick = async function () {
+              const textarea = document.getElementById("announce");
+
+              const text = textarea.value.trim();
+
+              if (!text) {
+                App.toast("Write an announcement first.", "warning");
+
+                textarea.focus();
+
+                return;
+              }
+
+              const originalText = announceBtn.textContent;
+
+              announceBtn.disabled = true;
+
+              announceBtn.textContent = "Publishing...";
+
+              try {
+                const announcementData = {
+                  text: text,
+                  published: true,
+                  createdBy: currentUser.uid,
+                  createdByEmail: currentUser.email || "",
+                  createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                };
+
+                const announcementRef = await db
+                  .collection("announcements")
+                  .add(announcementData);
+
+                announcements.unshift({
+                  id: announcementRef.id,
+                  text: text,
+                  published: true,
+                  createdAt: null,
+                  createdBy: currentUser.uid,
+                  createdByEmail: currentUser.email || "",
+                });
+
+                const announcementList =
+                  document.getElementById("announcement-list");
+
+                if (announcementList) {
+                  announcementList.innerHTML =
+                    renderAnnouncements(announcements);
+                }
+
+                textarea.value = "";
+
+                App.toast("Announcement published to all students.", "success");
+              } catch (error) {
+                console.error("[CyberAware] Announcement save error:", error);
+
+                App.toast(
+                  "Could not publish announcement: " +
+                    (error.message || "Unknown error"),
+                  "error",
+                );
+              } finally {
+                announceBtn.disabled = false;
+                announceBtn.textContent = originalText;
+              }
+            };
+          }
+
+          // ===================================================
+          // EXPORT STUDENTS
+          // ===================================================
+
+          const exportStudents = document.getElementById("export-students");
+
+          if (exportStudents) {
+            exportStudents.onclick = function () {
+              exportStudentsCSV(students);
+            };
+          }
+
+          console.log("[CyberAware] Admin Dashboard loaded successfully.");
+        }
+
+        // =====================================================
+        // RENDER ANNOUNCEMENTS
+        // =====================================================
+
+        function renderAnnouncements(announcements) {
+          if (!Array.isArray(announcements) || announcements.length === 0) {
+            return `
+              <div
+                style="
+                  padding:1.5rem;
+                  text-align:center;
+                  border:1px dashed var(--border);
+                  border-radius:12px;
+                "
+              >
+                <div
+                  style="
+                    font-size:2rem;
+                    margin-bottom:0.5rem;
+                  "
+                >
+                  📢
+                </div>
+
+                <p class="text-sm">
+                  No announcements yet.
+                </p>
+
+                <p class="text-xs text-muted mt-1">
+                  Publish an announcement above to notify students.
+                </p>
+              </div>
+            `;
+          }
+
+          return announcements
+            .map(function (announcement) {
+              const createdText =
+                announcement.createdAt && announcement.createdAt.toDate
+                  ? announcement.createdAt.toDate().toLocaleString("en-IN")
+                  : "Just now";
+
+              return `
+                <div
+                  class="alert alert-info"
+                  style="margin-bottom:0.75rem"
+                >
+                  <div>
+                    <div
+                      class="flex justify-between items-start gap-2 flex-wrap"
+                    >
+                      <strong>
+                        📢 Campus Announcement
+                      </strong>
+
+                      <span class="text-xs text-muted">
+                        ${escapeHtml(createdText)}
+                      </span>
+                    </div>
+
+                    <p
+                      class="text-sm mt-2"
+                      style="white-space:pre-wrap"
+                    >
+                      ${escapeHtml(announcement.text)}
+                    </p>
+                  </div>
+                </div>
+              `;
+            })
+            .join("");
+        }
+
+        // =====================================================
+        // RENDER STUDENTS
+        // =====================================================
+
+        function renderStudents(students) {
+          if (!Array.isArray(students) || students.length === 0) {
+            return `
+              <tr>
+                <td
+                  colspan="8"
+                  class="text-muted"
+                  style="
+                    text-align:center;
+                    padding:2rem
+                  "
+                >
+                  No students found.
+                </td>
+              </tr>
+            `;
+          }
+
+          return students
+            .map(function (student) {
+              return `
+                <tr>
+
+                  <td
+                    class="font-mono text-xs"
+                    title="${escapeHtml(student.uid)}"
+                  >
+                    ${escapeHtml(student.uid).slice(0, 12)}...
+                  </td>
+
+
+                  <td>
+                    <strong>
+                      ${escapeHtml(student.name)}
+                    </strong>
+                  </td>
+
+
+                  <td>
+                    <span class="text-sm">
+                      ${escapeHtml(student.email)}
+                    </span>
+                  </td>
+
+
+                  <td>
+                    <strong>
+                      ${student.awarenessScore}%
+                    </strong>
+                  </td>
+
+
+                  <td>
+                    ${student.quizzesCompleted}
+                  </td>
+
+
+                  <td>
+                    ${student.modulesCompleted}
+                  </td>
+
+
+                  <td>
+                    ${
+                      student.emailVerified
+                        ? `
+                          <span
+                            class="
+                              badge
+                              badge-success
+                            "
+                          >
+                            Verified
+                          </span>
+                        `
+                        : `
+                          <span
+                            class="
+                              badge
+                              badge-warning
+                            "
+                          >
+                            Unverified
+                          </span>
+                        `
+                    }
+                  </td>
+
+
+                  <td>
+
+                    <button
+                      class="
+                        btn
+                        btn-ghost
+                        btn-sm
+                      "
+                      data-view-student="${escapeHtml(student.uid)}"
+                    >
+                      View
+                    </button>
+
+                  </td>
+
+                </tr>
+              `;
+            })
+            .join("");
+        }
+
+        // =====================================================
+        // RENDER MODULES
+        // =====================================================
+
+        function renderModules(modules) {
+          if (!Array.isArray(modules) || modules.length === 0) {
+            return `
+              <p class="text-muted text-sm">
+                No modules available.
+              </p>
+            `;
+          }
+
+          return modules
+            .map(function (module) {
+              return `
+                <div
+                  class="module-admin-item"
+                  data-module-row="${escapeHtml(module.id)}"
+                  style="
+                    padding:0.85rem 0;
+                    border-bottom:1px solid var(--border);
+                  "
+                >
+
+                  <div
+                    class="
+                      flex
+                      justify-between
+                      items-start
+                      gap-3
+                      flex-wrap
+                    "
+                  >
+
+                    <div
+                      style="
+                        flex:1;
+                        min-width:200px;
+                      "
+                    >
+
+                      <div
+                        class="
+                          flex
+                          items-center
+                          gap-2
+                          flex-wrap
+                        "
+                      >
+
+                        <span
+                          style="
+                            font-size:1.35rem;
+                          "
+                        >
+                          ${escapeHtml(module.icon)}
+                        </span>
+
+
+                        <strong>
+                          ${escapeHtml(module.title)}
+                        </strong>
+
+
+                        ${
+                          module.published
+                            ? `
+                              <span
+                                class="
+                                  badge
+                                  badge-success
+                                "
+                              >
+                                Published
+                              </span>
+                            `
+                            : `
+                              <span
+                                class="
+                                  badge
+                                  badge-warning
+                                "
+                              >
+                                Draft
+                              </span>
+                            `
+                        }
+
+                      </div>
+
+
+                      <p
+                        class="
+                          text-xs
+                          text-muted
+                          mt-1
+                        "
+                      >
+                        ${escapeHtml(module.description)}
+                      </p>
+
+
+                      <div
+                        class="
+                          text-xs
+                          text-muted
+                          mt-2
+                        "
+                      >
+
+                        📂
+                        ${escapeHtml(module.category)}
+
+                        &nbsp; • &nbsp;
+
+                        ⏱️
+                        ${escapeHtml(module.duration)}
+
+                        &nbsp; • &nbsp;
+
+                        #${module.order}
+
+                      </div>
+
+                    </div>
+
+
+                    <div
+                      class="
+                        flex
+                        gap-2
+                        flex-wrap
+                      "
+                    >
+
+                      <button
+                        type="button"
+                        class="
+                          btn
+                          btn-ghost
+                          btn-sm
+                        "
+                        data-module-edit="${escapeHtml(module.id)}"
+                      >
+                        Edit
+                      </button>
+
+
+                      <button
+                        type="button"
+                        class="
+                          btn
+                          ${module.published ? "btn-secondary" : "btn-success"}
+                          btn-sm
+                        "
+                        data-module-toggle="${escapeHtml(module.id)}"
+                      >
+                        ${module.published ? "Unpublish" : "Publish"}
+                      </button>
+
+
+                      <button
+                        type="button"
+                        class="
+                          btn
+                          btn-danger
+                          btn-sm
+                        "
+                        data-module-delete="${escapeHtml(module.id)}"
+                      >
+                        Delete
+                      </button>
+
+                    </div>
+
+                  </div>
+
+                </div>
+              `;
+            })
+            .join("");
+        }
+
+        // =====================================================
+        // RENDER QUIZ QUESTIONS
+        // =====================================================
+
+        function renderQuizQuestions(questions, modules) {
+          if (!Array.isArray(questions) || questions.length === 0) {
+            return `
+              <div
+                style="
+                  padding:2rem;
+                  text-align:center;
+                "
+              >
+
+                <div
+                  style="
+                    font-size:2.5rem;
+                    margin-bottom:0.5rem;
+                  "
+                >
+                  📝
+                </div>
+
+                <p class="text-sm">
+                  No quiz questions found.
+                </p>
+
+                <p
+                  class="
+                    text-xs
+                    text-muted
+                    mt-1
+                  "
+                >
+                  Click "Add Question" to create your first quiz question.
+                </p>
+
+              </div>
+            `;
+          }
+
+          return questions
+            .map(function (quiz, index) {
+              const module = modules.find(function (item) {
+                return item.id === quiz.moduleId;
+              });
+
+              const moduleTitle = module ? module.title : "No Module";
+
+              const correctAnswer =
+                quiz.options[quiz.correctIndex] || "Not set";
+
+              return `
+                  <div
+                    class="quiz-admin-item"
+                    data-quiz-row="${escapeHtml(quiz.id)}"
+                    style="
+                      padding:1rem 0;
+                      border-bottom:1px solid var(--border);
+                    "
+                  >
+
+                    <div
+                      class="
+                        flex
+                        justify-between
+                        items-start
+                        gap-3
+                        flex-wrap
+                      "
+                    >
+
+                      <div
+                        style="
+                          flex:1;
+                          min-width:220px;
+                        "
+                      >
+
+                        <div
+                          class="
+                            flex
+                            items-center
+                            gap-2
+                            flex-wrap
+                            mb-1
+                          "
+                        >
+
+                          <strong class="text-sm">
+                            Q${index + 1}.
+                          </strong>
+
+
+                          ${
+                            quiz.published
+                              ? `
+                                <span
+                                  class="
+                                    badge
+                                    badge-success
+                                  "
+                                >
+                                  Published
+                                </span>
+                              `
+                              : `
+                                <span
+                                  class="
+                                    badge
+                                    badge-warning
+                                  "
+                                >
+                                  Draft
+                                </span>
+                              `
+                          }
+
+                        </div>
+
+
+                        <p
+                          class="
+                            text-sm
+                            font-semibold
+                          "
+                        >
+                          ${escapeHtml(quiz.question)}
+                        </p>
+
+
+                        <div
+                          class="
+                            text-xs
+                            text-muted
+                            mt-2
+                          "
+                        >
+
+                          📚 Module:
+                          <strong>
+                            ${escapeHtml(moduleTitle)}
+                          </strong>
+
+                          &nbsp; • &nbsp;
+
+                          #${quiz.order}
+
+                        </div>
+
+
+                        <div
+                          class="
+                            text-xs
+                            mt-2
+                          "
+                        >
+
+                          <span class="text-muted">
+                            Correct answer:
+                          </span>
+
+                          <strong>
+                            ${escapeHtml(correctAnswer)}
+                          </strong>
+
+                        </div>
+
+                      </div>
+
+
+                      <div
+                        class="
+                          flex
+                          gap-2
+                          flex-wrap
+                        "
+                      >
+
+                        <button
+                          type="button"
+                          class="
+                            btn
+                            btn-ghost
+                            btn-sm
+                          "
+                          data-quiz-edit="${escapeHtml(quiz.id)}"
+                        >
+                          Edit
+                        </button>
+
+
+                        <button
+                          type="button"
+                          class="
+                            btn
+                            ${quiz.published ? "btn-secondary" : "btn-success"}
+                            btn-sm
+                          "
+                          data-quiz-toggle="${escapeHtml(quiz.id)}"
+                        >
+                          ${quiz.published ? "Unpublish" : "Publish"}
+                        </button>
+
+
+                        <button
+                          type="button"
+                          class="
+                            btn
+                            btn-danger
+                            btn-sm
+                          "
+                          data-quiz-delete="${escapeHtml(quiz.id)}"
+                        >
+                          Delete
+                        </button>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+                `;
+            })
+            .join("");
+        }
+
+        // =====================================================
+        // INITIALIZE MODULE EVENTS
+        // =====================================================
+
+        function initializeModuleEvents(modules, currentUser) {
+          const addModule = document.getElementById("add-module");
+
+          if (addModule) {
+            addModule.onclick = function () {
+              openModuleModal(null, modules);
+            };
+          }
+
+          const seedModules = document.getElementById("seed-modules");
+
+          if (seedModules) {
+            seedModules.onclick = async function () {
+              await seedDefaultModules();
+            };
+          }
+
+          document
+            .querySelectorAll("[data-module-edit]")
+            .forEach(function (button) {
+              button.onclick = function () {
+                const moduleId = button.dataset.moduleEdit;
+
+                const module = modules.find(function (item) {
+                  return item.id === moduleId;
+                });
+
+                if (!module) {
+                  App.toast("Module not found.", "error");
+
+                  return;
+                }
+
+                openModuleModal(module, modules);
+              };
+            });
+
+          document
+            .querySelectorAll("[data-module-toggle]")
+            .forEach(function (button) {
+              button.onclick = async function () {
+                const moduleId = button.dataset.moduleToggle;
+
+                const module = modules.find(function (item) {
+                  return item.id === moduleId;
+                });
+
+                if (!module) {
+                  App.toast("Module not found.", "error");
+
+                  return;
+                }
+
+                const newPublished = !module.published;
+
+                const originalText = button.textContent;
+
+                button.disabled = true;
+
+                button.textContent = "Saving...";
+
+                try {
+                  await db.collection("learningModules").doc(moduleId).update({
+                    published: newPublished,
+
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                  });
+
+                  App.toast(
+                    newPublished
+                      ? "Module published successfully."
+                      : "Module unpublished successfully.",
+                    "success",
+                  );
+
+                  module.published = newPublished;
+
+                  button.disabled = false;
+
+                  button.textContent = newPublished ? "Unpublish" : "Publish";
+
+                  refreshModuleList(modules);
+                } catch (error) {
+                  console.error("[CyberAware] Module publish error:", error);
+
+                  App.toast("Could not update module.", "error");
+
+                  button.disabled = false;
+
+                  button.textContent = originalText;
+                }
+              };
+            });
+
+          document
+            .querySelectorAll("[data-module-delete]")
+            .forEach(function (button) {
+              button.onclick = async function () {
+                const moduleId = button.dataset.moduleDelete;
+
+                const module = modules.find(function (item) {
+                  return item.id === moduleId;
+                });
+
+                if (!module) {
+                  App.toast("Module not found.", "error");
+
+                  return;
+                }
+
+                const confirmed = confirm(
+                  `Delete "${module.title}" permanently?`,
+                );
+
+                if (!confirmed) {
+                  return;
+                }
+
+                button.disabled = true;
+
+                button.textContent = "Deleting...";
+
+                try {
+                  await db.collection("learningModules").doc(moduleId).delete();
+
+                  const index = modules.findIndex(function (item) {
+                    return item.id === moduleId;
+                  });
+
+                  if (index !== -1) {
+                    modules.splice(index, 1);
+                  }
+
+                  adminModules = modules;
+
+                  App.toast("Module deleted successfully.", "success");
+
+                  refreshModuleList(modules);
+
+                  updateModuleCount(modules.length);
+                } catch (error) {
+                  console.error("[CyberAware] Module delete error:", error);
+
+                  App.toast("Could not delete module.", "error");
+
+                  button.disabled = false;
+
+                  button.textContent = "Delete";
+                }
+              };
+            });
+        }
+
+        // =====================================================
+        // REFRESH MODULE LIST
+        // =====================================================
+
+        function refreshModuleList(modules) {
+          modules.sort(function (a, b) {
+            return Number(a.order || 0) - Number(b.order || 0);
+          });
+
+          adminModules = modules;
+
+          const list = document.getElementById("module-list");
+
+          if (list) {
+            list.innerHTML = renderModules(modules);
+
+            initializeModuleEvents(modules, auth.currentUser);
+          }
+        }
+
+        // =====================================================
+        // UPDATE MODULE COUNT
+        // =====================================================
+
+        function updateModuleCount(count) {
+          const moduleCount = document.getElementById("module-count");
+
+          if (moduleCount) {
+            moduleCount.textContent = count;
+          }
+        }
+
+        // =====================================================
+        // OPEN MODULE MODAL
+        // =====================================================
+
+        function openModuleModal(module, modules) {
+          const modal = document.getElementById("module-modal");
+
+          const modalTitle = document.getElementById("module-modal-title");
+
+          const idInput = document.getElementById("module-id");
+
+          const titleInput = document.getElementById("module-title");
+
+          const descriptionInput =
+            document.getElementById("module-description");
+
+          const categoryInput = document.getElementById("module-category");
+
+          const durationInput = document.getElementById("module-duration");
+
+          const iconInput = document.getElementById("module-icon");
+
+          const orderInput = document.getElementById("module-order");
+
+          const publishedInput = document.getElementById("module-published");
+
+          if (!modal) {
+            return;
+          }
+
+          if (module) {
+            modalTitle.textContent = "Edit Learning Module";
+
+            idInput.value = module.id;
+
+            titleInput.value = module.title || "";
+
+            descriptionInput.value = module.description || "";
+
+            categoryInput.value = module.category || "";
+
+            durationInput.value = module.duration || "";
+
+            iconInput.value = module.icon || "📚";
+
+            orderInput.value = module.order || 1;
+
+            publishedInput.checked = module.published === true;
+          } else {
+            modalTitle.textContent = "Add Learning Module";
+
+            idInput.value = "";
+
+            titleInput.value = "";
+
+            descriptionInput.value = "";
+
+            categoryInput.value = "";
+
+            durationInput.value = "10 min";
+
+            iconInput.value = "📚";
+
+            orderInput.value = modules.length + 1;
+
+            publishedInput.checked = false;
+          }
+
+          modal.style.display = "flex";
+
+          titleInput.focus();
+        }
+
+        // =====================================================
+        // CLOSE MODULE MODAL
+        // =====================================================
+
+        function closeModuleModal() {
+          const modal = document.getElementById("module-modal");
+
+          if (modal) {
+            modal.style.display = "none";
+          }
+        }
+
+        // =====================================================
+        // MODULE FORM
+        // =====================================================
+
+        document.addEventListener("submit", async function (event) {
+          if (event.target.id !== "module-form") {
+            return;
+          }
+
+          event.preventDefault();
+
+          const idInput = document.getElementById("module-id");
+
+          const titleInput = document.getElementById("module-title");
+
+          const descriptionInput =
+            document.getElementById("module-description");
+
+          const categoryInput = document.getElementById("module-category");
+
+          const durationInput = document.getElementById("module-duration");
+
+          const iconInput = document.getElementById("module-icon");
+
+          const orderInput = document.getElementById("module-order");
+
+          const publishedInput = document.getElementById("module-published");
+
+          const saveButton = document.getElementById("save-module");
+
+          const existingId = idInput.value.trim();
+
+          const title = titleInput.value.trim();
+
+          const description = descriptionInput.value.trim();
+
+          const category = categoryInput.value.trim();
+
+          const duration = durationInput.value.trim();
+
+          const icon = iconInput.value.trim();
+
+          const order = Number(orderInput.value);
+
+          const published = publishedInput.checked;
+
+          if (!title || !description || !category || !duration || !icon) {
+            App.toast("Please fill all module fields.", "warning");
+
+            return;
+          }
+
+          if (!Number.isFinite(order) || order < 1) {
+            App.toast("Display order must be a valid number.", "warning");
+
+            return;
+          }
+
+          let moduleId = existingId;
+
+          if (!moduleId) {
+            moduleId = createModuleId(title);
+          }
+
+          const moduleData = {
+            id: moduleId,
+
+            title: title,
+
+            description: description,
+
+            category: category,
+
+            duration: duration,
+
+            icon: icon,
+
+            order: order,
+
+            published: published,
+
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          };
+
+          saveButton.disabled = true;
+
+          saveButton.textContent = "Saving...";
+
+          try {
+            const moduleRef = db.collection("learningModules").doc(moduleId);
+
+            const existingSnapshot = await moduleRef.get();
+
+            if (existingSnapshot.exists) {
+              await moduleRef.update(moduleData);
+
+              App.toast("Learning module updated successfully.", "success");
+            } else {
+              moduleData.createdAt =
+                firebase.firestore.FieldValue.serverTimestamp();
+
+              await moduleRef.set(moduleData);
+
+              App.toast("Learning module added successfully.", "success");
+            }
+
+            closeModuleModal();
+
+            await reloadModulesInAdmin();
+          } catch (error) {
+            console.error("[CyberAware] Module save error:", error);
+
+            App.toast("Could not save learning module.", "error");
+          }
+
+          saveButton.disabled = false;
+
+          saveButton.textContent = "Save Module";
+        });
+
+        // =====================================================
+        // MODAL CLOSE BUTTONS
+        // =====================================================
+
+        document.addEventListener("click", function (event) {
+          if (event.target.id === "close-module-modal") {
+            closeModuleModal();
+          }
+
+          if (event.target.id === "cancel-module") {
+            closeModuleModal();
+          }
+        });
+
+        // =====================================================
+        // MODULE MODAL BACKDROP
+        // =====================================================
+
+        document.addEventListener("click", function (event) {
+          const modal = document.getElementById("module-modal");
+
+          if (modal && event.target === modal) {
+            closeModuleModal();
+          }
+        });
+
+        // =====================================================
+        // CREATE MODULE ID
+        // =====================================================
+
+        function createModuleId(title) {
+          let id = title
+            .toLowerCase()
+            .trim()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "");
+
+          if (!id) {
+            id = "module-" + Date.now();
+          }
+
+          return id;
+        }
+
+        // =====================================================
+        // SEED DEFAULT MODULES
+        // =====================================================
+
+        async function seedDefaultModules() {
+          if (
+            !Array.isArray(AppData.learningModules) ||
+            AppData.learningModules.length === 0
+          ) {
+            App.toast("No default modules found in data.js.", "error");
+
+            return;
+          }
+
+          const seedButton = document.getElementById("seed-modules");
+
+          if (seedButton) {
+            seedButton.disabled = true;
+
+            seedButton.textContent = "Loading...";
+          }
+
+          try {
+            let addedCount = 0;
+
+            for (let i = 0; i < AppData.learningModules.length; i++) {
+              const module = AppData.learningModules[i];
+
+              const moduleId = module.id || createModuleId(module.title);
+
+              const moduleRef = db.collection("learningModules").doc(moduleId);
+
+              const snapshot = await moduleRef.get();
+
+              if (!snapshot.exists) {
+                await moduleRef.set({
+                  id: moduleId,
+
+                  title: module.title || "Untitled Module",
+
+                  description: module.description || "",
+
+                  category: module.category || "General",
+
+                  duration: module.duration || "10 min",
+
+                  icon: module.icon || "📚",
+
+                  order: i + 1,
+
+                  published: true,
+
+                  createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+
+                  updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                });
+
+                addedCount++;
+              }
+            }
+
+            App.toast(
+              `${addedCount} default module(s) added to Firebase.`,
+              "success",
+            );
+
+            await reloadModulesInAdmin();
+          } catch (error) {
+            console.error("[CyberAware] Default module seed error:", error);
+
+            App.toast("Could not load default modules.", "error");
+
+            if (seedButton) {
+              seedButton.disabled = false;
+
+              seedButton.textContent = "🌱 Load Default Modules";
+            }
+          }
+        }
+
+        // =====================================================
+        // RELOAD MODULES
+        // =====================================================
+
+        async function reloadModulesInAdmin() {
+          try {
+            const snapshot = await db.collection("learningModules").get();
+
+            const freshModules = [];
+
+            snapshot.forEach(function (doc) {
+              const data = doc.data();
+
+              freshModules.push({
+                id: data.id || doc.id,
+
+                title: data.title || "Untitled Module",
+
+                description: data.description || "",
+
+                category: data.category || "General",
+
+                duration: data.duration || "10 min",
+
+                icon: data.icon || "📚",
+
+                order: Number(data.order || 0),
+
+                published: data.published === true,
+
+                createdAt: data.createdAt || null,
+
+                updatedAt: data.updatedAt || null,
+              });
+            });
+
+            freshModules.sort(function (a, b) {
+              return a.order - b.order;
+            });
+
+            adminModules = freshModules;
+
+            const moduleSection = document.getElementById("modules");
+
+            if (!moduleSection) {
+              return;
+            }
+
+            const list = document.getElementById("module-list");
+
+            const headerButtons = moduleSection.querySelector(
+              ".flex.gap-2.flex-wrap",
+            );
+
+            if (freshModules.length > 0) {
+              if (headerButtons) {
+                headerButtons.innerHTML = `
+                  <button
+                    class="
+                      btn
+                      btn-primary
+                      btn-sm
+                    "
+                    id="add-module"
+                  >
+                    + Add Module
+                  </button>
+                `;
+              }
+            }
+
+            if (list) {
+              list.innerHTML = renderModules(freshModules);
+            } else {
+              const emptyArea = moduleSection.querySelector(
+                '[style*="text-align:center"]',
+              );
+
+              if (emptyArea && freshModules.length > 0) {
+                emptyArea.outerHTML = `
+                  <div id="module-list">
+                    ${renderModules(freshModules)}
+                  </div>
+                `;
+              }
+            }
+
+            updateModuleCount(freshModules.length);
+
+            initializeModuleEvents(freshModules, auth.currentUser);
+          } catch (error) {
+            console.error("[CyberAware] Module reload error:", error);
+
+            App.toast("Could not refresh modules.", "error");
+          }
+        }
+
+        // =====================================================
+        // QUIZ EVENTS
+        // =====================================================
+
+        function initializeQuizEvents(questions, modules) {
+          // ADD
+
+          const addQuestion = document.getElementById("add-question");
+
+          if (addQuestion) {
+            addQuestion.onclick = function () {
+              openQuizModal(null, questions, modules);
+            };
+          }
+
+          // RELOAD
+
+          const reloadQuestions = document.getElementById("reload-questions");
+
+          if (reloadQuestions) {
+            reloadQuestions.onclick = async function () {
+              reloadQuestions.disabled = true;
+
+              reloadQuestions.textContent = "Loading...";
+
+              await reloadQuizQuestionsInAdmin();
+
+              reloadQuestions.disabled = false;
+
+              reloadQuestions.textContent = "↻ Reload";
+            };
+          }
+
+          // EDIT
+
+          document
+            .querySelectorAll("[data-quiz-edit]")
+            .forEach(function (button) {
+              button.onclick = function () {
+                const quizId = button.dataset.quizEdit;
+
+                const question = questions.find(function (item) {
+                  return item.id === quizId;
+                });
+
+                if (!question) {
+                  App.toast("Quiz question not found.", "error");
+
+                  return;
+                }
+
+                openQuizModal(question, questions, modules);
+              };
+            });
+
+          // PUBLISH / UNPUBLISH
+
+          document
+            .querySelectorAll("[data-quiz-toggle]")
+            .forEach(function (button) {
+              button.onclick = async function () {
+                const quizId = button.dataset.quizToggle;
+
+                const question = questions.find(function (item) {
+                  return item.id === quizId;
+                });
+
+                if (!question) {
+                  App.toast("Quiz question not found.", "error");
+
+                  return;
+                }
+
+                const newPublished = !question.published;
+
+                const originalText = button.textContent;
+
+                button.disabled = true;
+
+                button.textContent = "Saving...";
+
+                try {
+                  await db.collection("quizQuestions").doc(quizId).update({
+                    published: newPublished,
+
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                  });
+
+                  question.published = newPublished;
+
+                  App.toast(
+                    newPublished
+                      ? "Quiz question published."
+                      : "Quiz question unpublished.",
+                    "success",
+                  );
+
+                  refreshQuizList(questions, modules);
+                } catch (error) {
+                  console.error("[CyberAware] Quiz publish error:", error);
+
+                  App.toast("Could not update quiz question.", "error");
+
+                  button.disabled = false;
+
+                  button.textContent = originalText;
+                }
+              };
+            });
+
+          // DELETE
+
+          document
+            .querySelectorAll("[data-quiz-delete]")
+            .forEach(function (button) {
+              button.onclick = async function () {
+                const quizId = button.dataset.quizDelete;
+
+                const question = questions.find(function (item) {
+                  return item.id === quizId;
+                });
+
+                if (!question) {
+                  App.toast("Quiz question not found.", "error");
+
+                  return;
+                }
+
+                const confirmed = confirm(
+                  "Delete this quiz question permanently?",
+                );
+
+                if (!confirmed) {
+                  return;
+                }
+
+                button.disabled = true;
+
+                button.textContent = "Deleting...";
+
+                try {
+                  await db.collection("quizQuestions").doc(quizId).delete();
+
+                  const index = questions.findIndex(function (item) {
+                    return item.id === quizId;
+                  });
+
+                  if (index !== -1) {
+                    questions.splice(index, 1);
+                  }
+
+                  App.toast("Quiz question deleted.", "success");
+
+                  refreshQuizList(questions, modules);
+                } catch (error) {
+                  console.error("[CyberAware] Quiz delete error:", error);
+
+                  App.toast("Could not delete quiz question.", "error");
+
+                  button.disabled = false;
+
+                  button.textContent = "Delete";
+                }
+              };
+            });
+        }
+
+        // =====================================================
+        // OPEN QUIZ MODAL
+        // =====================================================
+
+        function openQuizModal(question, questions, modules) {
+          const modal = document.getElementById("quiz-modal");
+
+          const modalTitle = document.getElementById("quiz-modal-title");
+
+          const idInput = document.getElementById("quiz-id");
+
+          const moduleInput = document.getElementById("quiz-module");
+
+          const questionInput = document.getElementById("quiz-question");
+
+          const correctInput = document.getElementById("quiz-correct");
+
+          const explanationInput = document.getElementById("quiz-explanation");
+
+          const orderInput = document.getElementById("quiz-order");
+
+          const publishedInput = document.getElementById("quiz-published");
+
+          if (!modal) {
+            return;
+          }
+
+          moduleInput.innerHTML = `
+            <option value="">
+              Select Module
+            </option>
+
+            ${modules
+              .map(function (module) {
+                return `
+                    <option
+                      value="${escapeHtml(module.id)}"
+                    >
+                      ${escapeHtml(module.icon)}
+                      ${escapeHtml(module.title)}
+                    </option>
+                  `;
+              })
+              .join("")}
+          `;
+
+          // EDIT
+
+          if (question) {
+            modalTitle.textContent = "Edit Quiz Question";
+
+            idInput.value = question.id || "";
+
+            moduleInput.value = question.moduleId || "";
+
+            questionInput.value = question.question || "";
+
+            for (let i = 0; i < 4; i++) {
+              const input = document.getElementById("quiz-option-" + i);
+
+              if (input) {
+                input.value = question.options[i] || "";
+              }
+            }
+
+            correctInput.value = String(Number(question.correctIndex || 0));
+
+            explanationInput.value = question.explanation || "";
+
+            orderInput.value = question.order || 1;
+
+            publishedInput.checked = question.published === true;
+          }
+
+          // ADD
+          else {
+            modalTitle.textContent = "Add Quiz Question";
+
+            idInput.value = "";
+
+            moduleInput.value = "";
+
+            questionInput.value = "";
+
+            for (let i = 0; i < 4; i++) {
+              const input = document.getElementById("quiz-option-" + i);
+
+              if (input) {
+                input.value = "";
+              }
+            }
+
+            correctInput.value = "0";
+
+            explanationInput.value = "";
+
+            orderInput.value = questions.length + 1;
+
+            publishedInput.checked = false;
+          }
+
+          modal.style.display = "flex";
+
+          questionInput.focus();
+        }
+
+        // =====================================================
+        // CLOSE QUIZ MODAL
+        // =====================================================
+
+        function closeQuizModal() {
+          const modal = document.getElementById("quiz-modal");
+
+          if (modal) {
+            modal.style.display = "none";
+          }
+        }
+
+        // =====================================================
+        // REFRESH QUIZ LIST
+        // =====================================================
+
+        function refreshQuizList(questions, modules) {
+          questions.sort(function (a, b) {
+            return Number(a.order || 0) - Number(b.order || 0);
+          });
+
+          const list = document.getElementById("quiz-question-list");
+
+          if (list) {
+            list.innerHTML = renderQuizQuestions(questions, modules);
+
+            initializeQuizEvents(questions, modules);
+          }
+
+          updateQuizCount(questions.length);
+        }
+
+        // =====================================================
+        // UPDATE QUIZ COUNT
+        // =====================================================
+
+        function updateQuizCount(count) {
+          const quizCount = document.getElementById("quiz-count");
+
+          if (quizCount) {
+            quizCount.textContent = count;
+          }
+        }
+
+        // =====================================================
+        // RELOAD QUIZ QUESTIONS
+        // =====================================================
+
+        async function reloadQuizQuestionsInAdmin() {
+          try {
+            const snapshot = await db.collection("quizQuestions").get();
+
+            const freshQuestions = [];
+
+            snapshot.forEach(function (doc) {
+              const data = doc.data();
+
+              const options = Array.isArray(data.options)
+                ? data.options
+                : ["", "", "", ""];
+
+              freshQuestions.push({
+                id: doc.id,
+
+                moduleId: data.moduleId || "",
+
+                question: data.question || "",
+
+                options: [
+                  options[0] || "",
+                  options[1] || "",
+                  options[2] || "",
+                  options[3] || "",
+                ],
+
+                correctIndex: Number(data.correctIndex || 0),
+
+                explanation: data.explanation || "",
+
+                order: Number(data.order || 0),
+
+                published: data.published === true,
+
+                createdAt: data.createdAt || null,
+
+                updatedAt: data.updatedAt || null,
+              });
+            });
+
+            freshQuestions.sort(function (a, b) {
+              return a.order - b.order;
+            });
+
+            const list = document.getElementById("quiz-question-list");
+
+            if (list) {
+              list.innerHTML = renderQuizQuestions(
+                freshQuestions,
+                adminModules,
+              );
+            }
+
+            initializeQuizEvents(freshQuestions, adminModules);
+
+            updateQuizCount(freshQuestions.length);
+          } catch (error) {
+            console.error("[CyberAware] Quiz reload error:", error);
+
+            App.toast("Could not reload quiz questions.", "error");
+          }
+        }
+
+        // =====================================================
+        // QUIZ FORM SUBMIT
+        // =====================================================
+
+        function initializeQuizForm() {
+          const form = document.getElementById("quiz-form");
+
+          if (!form) {
+            console.error("[CyberAware] quiz-form not found.");
+            return;
+          }
+
+          // Directly attach the submit handler to the dynamically-created form.
+          // This is more reliable than relying only on document-level delegation.
+          form.onsubmit = async function (event) {
+            event.preventDefault();
+
+            console.log("[CyberAware] Quiz form submitted.");
+
+            const idInput = document.getElementById("quiz-id");
+            const moduleInput = document.getElementById("quiz-module");
+            const questionInput = document.getElementById("quiz-question");
+            const correctInput = document.getElementById("quiz-correct");
+            const explanationInput =
+              document.getElementById("quiz-explanation");
+            const orderInput = document.getElementById("quiz-order");
+            const publishedInput = document.getElementById("quiz-published");
+            const saveButton = document.getElementById("save-quiz");
+
+            if (
+              !idInput ||
+              !moduleInput ||
+              !questionInput ||
+              !correctInput ||
+              !explanationInput ||
+              !orderInput ||
+              !publishedInput ||
+              !saveButton
+            ) {
+              console.error("[CyberAware] Quiz form fields are missing.");
+              App.toast("Quiz form fields are missing.", "error");
+              return;
+            }
+
+            const existingId = idInput.value.trim();
+            const moduleId = moduleInput.value.trim();
+            const question = questionInput.value.trim();
+
+            const options = [];
+
+            for (let i = 0; i < 4; i++) {
+              const input = document.getElementById("quiz-option-" + i);
+
+              if (!input) {
+                App.toast("Quiz option " + (i + 1) + " is missing.", "error");
+                return;
+              }
+
+              options.push(input.value.trim());
+            }
+
+            const correctIndex = Number(correctInput.value);
+            const explanation = explanationInput.value.trim();
+            const order = Number(orderInput.value);
+            const published = publishedInput.checked;
+
+            // =====================================================
+            // VALIDATION
+            // =====================================================
+
+            if (!moduleId) {
+              App.toast("Please select a learning module.", "warning");
+              return;
+            }
+
+            if (!question) {
+              App.toast("Please enter the question.", "warning");
+              questionInput.focus();
+              return;
+            }
+
+            if (
+              options.some(function (option) {
+                return !option;
+              })
+            ) {
+              App.toast("Please fill all four options.", "warning");
+              return;
+            }
+
+            if (
+              !Number.isInteger(correctIndex) ||
+              correctIndex < 0 ||
+              correctIndex > 3
+            ) {
+              App.toast("Please select a valid correct answer.", "warning");
+              return;
+            }
+
+            if (!Number.isFinite(order) || order < 1) {
+              App.toast("Display order must be a valid number.", "warning");
+              return;
+            }
+
+            // =====================================================
+            // DOCUMENT ID
+            // =====================================================
+
+            const quizId = existingId || "quiz-" + Date.now();
+
+            // =====================================================
+            // FIREBASE DATA
+            // =====================================================
+
+            const quizData = {
+              moduleId: moduleId,
+              question: question,
+              options: options,
+              correctIndex: correctIndex,
+              explanation: explanation,
+              order: order,
+              published: published,
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            };
+
+            saveButton.disabled = true;
+            saveButton.textContent = "Saving...";
+
+            try {
+              console.log("[CyberAware] Saving quiz question:", quizId);
+
+              const quizRef = db.collection("quizQuestions").doc(quizId);
+
+              const existingSnapshot = await quizRef.get();
+
+              if (existingSnapshot.exists) {
+                await quizRef.update(quizData);
+
+                console.log("[CyberAware] Quiz question updated:", quizId);
+
+                closeQuizModal();
+
+                await reloadQuizQuestionsInAdmin();
+
+                App.toast("Quiz question updated successfully.", "success");
+              } else {
+                quizData.createdAt =
+                  firebase.firestore.FieldValue.serverTimestamp();
+
+                await quizRef.set(quizData);
+
+                console.log("[CyberAware] Quiz question created:", quizId);
+
+                closeQuizModal();
+
+                await reloadQuizQuestionsInAdmin();
+
+                App.toast("Quiz question added successfully.", "success");
+              }
+            } catch (error) {
+              console.error("[CyberAware] Quiz save error:", error);
+
+              App.toast(
+                "Could not save quiz question: " +
+                  (error.message || "Unknown error"),
+                "error",
+              );
+            } finally {
+              saveButton.disabled = false;
+              saveButton.textContent = "Save Question";
+            }
+          };
+        }
+
+        // =====================================================
+        // QUIZ MODAL CLOSE BUTTONS
+        // =====================================================
+
+        document.addEventListener("click", function (event) {
+          if (event.target.id === "close-quiz-modal") {
+            closeQuizModal();
+          }
+
+          if (event.target.id === "cancel-quiz") {
+            closeQuizModal();
+          }
+        });
+
+        // =====================================================
+        // QUIZ MODAL BACKDROP
+        // =====================================================
+
+        document.addEventListener("click", function (event) {
+          const modal = document.getElementById("quiz-modal");
+
+          if (modal && event.target === modal) {
+            closeQuizModal();
+          }
+        });
+
+        // =====================================================
+        // AVERAGE SCORE
+        // =====================================================
+
+        function calculateAverageScore(students) {
+          if (!Array.isArray(students) || students.length === 0) {
+            return 0;
+          }
+
+          const total = students.reduce(function (sum, student) {
+            return sum + Number(student.awarenessScore || 0);
+          }, 0);
+
+          return Math.round(total / students.length);
+        }
+
+        // =====================================================
+        // ESCAPE HTML
+        // =====================================================
+
+        function escapeHtml(value) {
+          return String(value ?? "")
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+        }
+
+        // =====================================================
+        // EXPORT CSV
+        // =====================================================
+
+        function exportStudentsCSV(students) {
+          if (!Array.isArray(students) || students.length === 0) {
+            App.toast("No student data available to export.", "warning");
+
+            return;
+          }
+
+          const headers = [
+            "UID",
+            "Name",
+            "Email",
+            "Role",
+            "Awareness Score",
+            "Modules Completed",
+            "Quizzes Completed",
+            "Certificates",
+            "Streak",
+            "Security Level",
+            "Email Verified",
+          ];
+
+          const rows = students.map(function (student) {
+            return [
+              student.uid,
+
+              student.name,
+
+              student.email,
+
+              student.role,
+
+              student.awarenessScore,
+
+              student.modulesCompleted,
+
+              student.quizzesCompleted,
+
+              student.certificates,
+
+              student.streak,
+
+              student.securityLevel,
+
+              student.emailVerified ? "Yes" : "No",
+            ]
+              .map(function (value) {
+                return `"${String(value).replace(/"/g, '""')}"`;
+              })
+              .join(",");
+          });
+
+          const csv = [headers.join(","), ...rows].join("\n");
+
+          const blob = new Blob([csv], {
+            type: "text/csv;charset=utf-8;",
+          });
+
+          const url = URL.createObjectURL(blob);
+
+          const link = document.createElement("a");
+
+          link.href = url;
+
+          link.download = "cyberaware-students.csv";
+
+          document.body.appendChild(link);
+
+          link.click();
+
+          document.body.removeChild(link);
+
+          URL.revokeObjectURL(url);
+
+          App.toast("Student CSV exported successfully.", "success");
+        }
+      });
+    </script>
+  </body>
+</html>

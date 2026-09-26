@@ -1,0 +1,1087 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Analytics · CyberAware</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- CyberAware CSS -->
+    <link rel="stylesheet" href="../css/styles.css" />
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  </head>
+
+  <body>
+    <!-- App Root -->
+    <div id="app-root"></div>
+
+    <!-- CyberAware Data -->
+    <script src="../js/data.js"></script>
+
+    <!-- CyberAware App -->
+    <script src="../js/app.js"></script>
+
+    <!-- Components -->
+    <script src="../js/components.js"></script>
+
+    <!-- Firebase Configuration -->
+    <script src="../js/firebase-config.js"></script>
+
+    <script>
+      // =========================================================
+      // 1. BASIC LAYOUT
+      // =========================================================
+
+      Layout.base = "";
+
+      const isAdmin = location.search.includes("admin");
+
+      document.getElementById("app-root").innerHTML = `
+
+      ${Layout.loader()}
+
+      <div class="app-shell">
+
+        ${isAdmin ? Layout.adminSidebar() : Layout.studentSidebar()}
+
+        <div class="main-area">
+
+          ${Layout.topbar("Analytics")}
+
+          <main
+            class="page-content"
+            id="page-main"
+          ></main>
+
+        </div>
+
+      </div>
+    `;
+
+      Layout.renderNotifs();
+
+      App.init();
+
+      // =========================================================
+      // 2. SHOW LOADING SCREEN
+      // =========================================================
+
+      document.getElementById("page-main").innerHTML = `
+
+      <div class="card card-static text-center p-5">
+
+        <div class="label mb-2">
+          📊 Loading Analytics
+        </div>
+
+        <p class="text-muted">
+          Fetching your real CyberAware data from Firebase...
+        </p>
+
+      </div>
+
+    `;
+
+      // =========================================================
+      // 3. FIREBASE AUTHENTICATION
+      // =========================================================
+
+      firebase.auth().onAuthStateChanged(async function (user) {
+        if (!user) {
+          document.getElementById("page-main").innerHTML = `
+
+            <div class="card card-static text-center p-5">
+
+              <div class="label">
+                🔐 Login Required
+              </div>
+
+              <p class="text-muted mt-2">
+                Please login to view your analytics.
+              </p>
+
+            </div>
+
+          `;
+
+          return;
+        }
+
+        // User is logged in
+        await loadAnalytics(user);
+      });
+
+      // =========================================================
+      // 4. LOAD ANALYTICS
+      // =========================================================
+
+      async function loadAnalytics(user) {
+        try {
+          const db = firebase.firestore();
+
+          // -----------------------------------------------------
+          // USER PROFILE
+          // -----------------------------------------------------
+
+          const userRef = db.collection("users").doc(user.uid);
+
+          const userSnapshot = await userRef.get();
+
+          let userData = {};
+
+          if (userSnapshot.exists) {
+            userData = userSnapshot.data();
+          }
+
+          // -----------------------------------------------------
+          // USER VALUES
+          // -----------------------------------------------------
+
+          const awarenessScore = Number(userData.awarenessScore || 0);
+
+          const quizzesCompleted = Number(userData.quizzesCompleted || 0);
+
+          const bestQuizScore = Number(userData.bestQuizScore || 0);
+
+          const certificates = Number(userData.certificates || 0);
+
+          const streak = Number(userData.streak || 0);
+
+          const completedModules = Array.isArray(userData.completedModules)
+            ? userData.completedModules
+            : [];
+
+          // =====================================================
+          // 5. QUIZ ATTEMPTS
+          // =====================================================
+
+          let quizAttempts = [];
+
+          try {
+            const quizSnapshot = await userRef.collection("quizAttempts").get();
+
+            quizSnapshot.forEach(function (doc) {
+              quizAttempts.push({
+                id: doc.id,
+                ...doc.data(),
+              });
+            });
+          } catch (error) {
+            console.warn("Quiz attempts could not be loaded:", error);
+          }
+
+          // =====================================================
+          // 6. CALCULATE QUIZ AVERAGE
+          // =====================================================
+
+          let quizAverage = bestQuizScore;
+
+          if (quizAttempts.length > 0) {
+            let totalScore = 0;
+
+            let validAttempts = 0;
+
+            quizAttempts.forEach(function (attempt) {
+              let score = null;
+
+              if (typeof attempt.score === "number") {
+                score = attempt.score;
+              } else if (typeof attempt.percentage === "number") {
+                score = attempt.percentage;
+              } else if (typeof attempt.lastQuizScore === "number") {
+                score = attempt.lastQuizScore;
+              }
+
+              if (score !== null) {
+                totalScore += Number(score);
+
+                validAttempts++;
+              }
+            });
+
+            if (validAttempts > 0) {
+              quizAverage = Math.round(totalScore / validAttempts);
+            }
+          }
+
+          // =====================================================
+          // 7. AI ANALYSIS COUNT
+          // =====================================================
+
+          let aiChecks = 0;
+
+          try {
+            const aiSnapshot = await db
+              .collection("aiAnalyses")
+              .where("uid", "==", user.uid)
+              .get();
+
+            aiChecks = aiSnapshot.size;
+          } catch (error) {
+            console.warn("AI analyses could not be loaded:", error);
+
+            // Fallback to user profile value
+            aiChecks = Number(userData.aiChecks || 0);
+          }
+
+          // =====================================================
+          // 8. COMMUNITY REPORT COUNT
+          // =====================================================
+
+          let communityReports = 0;
+
+          try {
+            const reportSnapshot = await db
+              .collection("alertWall")
+              .where("uid", "==", user.uid)
+              .get();
+
+            communityReports = reportSnapshot.size;
+          } catch (error) {
+            console.warn("Community reports could not be loaded:", error);
+          }
+
+          // =====================================================
+          // 9. SURVEY DATA
+          // =====================================================
+
+          let surveyPre = 0;
+
+          let surveyPost = awarenessScore;
+
+          let surveyCount = 0;
+
+          try {
+            const surveySnapshot = await userRef.collection("surveys").get();
+
+            surveyCount = surveySnapshot.size;
+
+            surveySnapshot.forEach(function (doc) {
+              const survey = doc.data();
+
+              if (typeof survey.preSurveyScore === "number") {
+                surveyPre = survey.preSurveyScore;
+              }
+
+              if (typeof survey.postSurveyScore === "number") {
+                surveyPost = survey.postSurveyScore;
+              }
+
+              if (typeof survey.preScore === "number") {
+                surveyPre = survey.preScore;
+              }
+
+              if (typeof survey.postScore === "number") {
+                surveyPost = survey.postScore;
+              }
+            });
+          } catch (error) {
+            console.warn("Survey data could not be loaded:", error);
+          }
+
+          // =====================================================
+          // 10. MODULE DATA
+          // =====================================================
+
+          const totalModules = 5;
+
+          const moduleNames = {
+            "fake-news": "Fake News",
+
+            phishing: "Phishing",
+
+            internship: "Internship Scams",
+
+            scholarship: "Scholarship Scams",
+
+            websites: "Website Safety",
+          };
+
+          const moduleCompletion = Object.keys(moduleNames).map(
+            function (moduleId) {
+              return {
+                name: moduleNames[moduleId],
+
+                value: completedModules.includes(moduleId) ? 100 : 0,
+              };
+            },
+          );
+
+          // =====================================================
+          // 11. WEEKLY ACTIVITY
+          // =====================================================
+
+          const weeklyActivity = calculateWeeklyActivity(quizAttempts);
+
+          const weeks = ["W1", "W2", "W3", "W4", "W5", "W6", "W7"];
+
+          // =====================================================
+          // 12. AWARENESS IMPROVEMENT
+          // =====================================================
+
+          const awarenessImprovement = calculateAwarenessProgress(
+            awarenessScore,
+            surveyPre,
+            surveyPost,
+          );
+
+          // =====================================================
+          // 13. DISPLAY ANALYTICS
+          // =====================================================
+
+          renderAnalytics({
+            awarenessScore,
+
+            quizzesCompleted,
+
+            bestQuizScore,
+
+            quizAverage,
+
+            certificates,
+
+            streak,
+
+            completedModules,
+
+            aiChecks,
+
+            communityReports,
+
+            surveyPre,
+
+            surveyPost,
+
+            surveyCount,
+
+            moduleCompletion,
+
+            weeklyActivity,
+
+            awarenessImprovement,
+
+            weeks,
+          });
+        } catch (error) {
+          console.error("Analytics loading error:", error);
+
+          document.getElementById("page-main").innerHTML = `
+
+          <div class="card card-static">
+
+            <div class="label">
+              ⚠️ Analytics Error
+            </div>
+
+            <p class="text-muted mt-2">
+              Unable to load analytics data.
+            </p>
+
+            <p class="text-xs text-muted mt-2">
+              ${escapeHtml(error.message)}
+            </p>
+
+          </div>
+
+        `;
+        }
+      }
+
+      // =========================================================
+      // 14. WEEKLY ACTIVITY CALCULATION
+      // =========================================================
+
+      function calculateWeeklyActivity(quizAttempts) {
+        const activity = [0, 0, 0, 0, 0, 0, 0];
+
+        const now = new Date();
+
+        quizAttempts.forEach(function (attempt) {
+          let date = null;
+
+          if (
+            attempt.createdAt &&
+            typeof attempt.createdAt.toDate === "function"
+          ) {
+            date = attempt.createdAt.toDate();
+          } else if (
+            attempt.timestamp &&
+            typeof attempt.timestamp.toDate === "function"
+          ) {
+            date = attempt.timestamp.toDate();
+          }
+
+          if (!date) {
+            return;
+          }
+
+          const difference = Math.floor(
+            (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24),
+          );
+
+          if (difference >= 0 && difference < 49) {
+            const week = Math.floor(difference / 7);
+
+            const index = 6 - week;
+
+            if (index >= 0 && index < 7) {
+              activity[index]++;
+            }
+          }
+        });
+
+        return activity;
+      }
+
+      // =========================================================
+      // 15. AWARENESS PROGRESS
+      // =========================================================
+
+      function calculateAwarenessProgress(
+        awarenessScore,
+        surveyPre,
+        surveyPost,
+      ) {
+        const result = [0, 0, 0, 0, 0, 0, 0];
+
+        if (surveyPre > 0 && surveyPost >= surveyPre) {
+          const improvement = surveyPost - surveyPre;
+
+          result[0] = Math.round(surveyPre);
+
+          result[1] = Math.round(surveyPre + improvement * 0.2);
+
+          result[2] = Math.round(surveyPre + improvement * 0.4);
+
+          result[3] = Math.round(surveyPre + improvement * 0.6);
+
+          result[4] = Math.round(surveyPre + improvement * 0.8);
+
+          result[5] = Math.round(surveyPost);
+
+          result[6] = Math.round(awarenessScore);
+        } else {
+          // If survey information is not available,
+          // use the current awareness score.
+
+          for (let i = 0; i < result.length; i++) {
+            result[i] = Math.round(awarenessScore);
+          }
+        }
+
+        return result;
+      }
+
+      // =========================================================
+      // 16. RENDER ANALYTICS
+      // =========================================================
+
+      function renderAnalytics(a) {
+        const maxWeek = Math.max(...a.weeklyActivity, 1);
+
+        const maxAware = Math.max(...a.awarenessImprovement, 1);
+
+        const improvement = a.surveyPost - a.surveyPre;
+
+        document.getElementById("page-main").innerHTML = `
+
+        <!-- ========================================== -->
+        <!-- PAGE HEADER -->
+        <!-- ========================================== -->
+
+        <div
+          class="page-header animate-in flex justify-between flex-wrap gap-2"
+        >
+
+          <div>
+
+            <h1>
+              Analytics Overview
+            </h1>
+
+            <p>
+              Your CyberAware activity and security awareness analytics.
+            </p>
+
+          </div>
+
+
+          <button
+            class="btn btn-secondary btn-sm"
+            id="refreshAnalyticsBtn"
+          >
+            🔄 Refresh Data
+          </button>
+
+        </div>
+
+
+        <!-- ========================================== -->
+        <!-- STAT CARDS -->
+        <!-- ========================================== -->
+
+        <div
+          class="stats-grid"
+          style="margin-bottom:1.5rem"
+        >
+
+          <!-- Awareness -->
+
+          <div class="card stat-card">
+
+            <div class="stat-label">
+              Awareness Score
+            </div>
+
+            <div class="stat-value">
+              ${a.awarenessScore}%
+            </div>
+
+            <div class="stat-trend up">
+              Current score
+            </div>
+
+          </div>
+
+
+          <!-- Quiz -->
+
+          <div class="card stat-card">
+
+            <div class="stat-label">
+              Quiz Performance
+            </div>
+
+            <div class="stat-value">
+              ${a.quizAverage}%
+            </div>
+
+            <div class="stat-trend up">
+              ${a.quizzesCompleted}
+              quizzes completed
+            </div>
+
+          </div>
+
+
+          <!-- AI -->
+
+          <div class="card stat-card">
+
+            <div class="stat-label">
+              AI Scam Checks
+            </div>
+
+            <div class="stat-value">
+              ${App.formatNumber(a.aiChecks)}
+            </div>
+
+            <div class="stat-trend up">
+              Your analyses
+            </div>
+
+          </div>
+
+
+          <!-- Reports -->
+
+          <div class="card stat-card">
+
+            <div class="stat-label">
+              Community Reports
+            </div>
+
+            <div class="stat-value">
+              ${a.communityReports}
+            </div>
+
+            <div class="stat-trend up">
+              Your reports
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <!-- ========================================== -->
+        <!-- WEEKLY CHARTS -->
+        <!-- ========================================== -->
+
+        <div
+          class="grid-2"
+          style="margin-bottom:1.5rem"
+        >
+
+
+          <!-- Awareness Improvement -->
+
+          <div class="card card-static">
+
+            <h3 class="mb-3">
+              Awareness Progress
+            </h3>
+
+
+            <div class="chart-bars">
+
+              ${a.awarenessImprovement
+                .map(function (value, index) {
+                  return `
+
+                        <div class="chart-bar-col">
+
+                          <div class="text-xs text-muted">
+                            ${value}%
+                          </div>
+
+                          <div
+                            class="chart-bar"
+                            style="
+                              height:${Math.max((value / maxAware) * 100, 5)}%;
+                            "
+                          ></div>
+
+                          <span class="chart-label">
+                            ${a.weeks[index]}
+                          </span>
+
+                        </div>
+
+                      `;
+                })
+                .join("")}
+
+            </div>
+
+          </div>
+
+
+          <!-- Weekly Activity -->
+
+          <div class="card card-static">
+
+            <h3 class="mb-3">
+              Weekly Activity
+            </h3>
+
+
+            <div class="chart-bars">
+
+              ${a.weeklyActivity
+                .map(function (value, index) {
+                  return `
+
+                        <div class="chart-bar-col">
+
+                          <div class="text-xs text-muted">
+                            ${value}
+                          </div>
+
+                          <div
+                            class="chart-bar"
+                            style="
+                              height:${Math.max((value / maxWeek) * 100, 5)}%;
+                              background:linear-gradient(
+                                180deg,
+                                #06b6d4,
+                                #4f46e5
+                              );
+                            "
+                          ></div>
+
+                          <span class="chart-label">
+                            ${a.weeks[index]}
+                          </span>
+
+                        </div>
+
+                      `;
+                })
+                .join("")}
+
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <!-- ========================================== -->
+        <!-- SURVEY + MODULES -->
+        <!-- ========================================== -->
+
+        <div
+          class="grid-2"
+          style="margin-bottom:1.5rem"
+        >
+
+
+          <!-- Survey -->
+
+          <div class="card card-static">
+
+            <h3 class="mb-3">
+              Survey Statistics
+            </h3>
+
+
+            <div
+              class="flex items-end gap-4"
+              style="
+                height:160px;
+                justify-content:center
+              "
+            >
+
+              <div class="text-center">
+
+                <div
+                  class="chart-bar"
+                  style="
+                    height:${Math.max(a.surveyPre * 1.4, 5)}px;
+                    width:64px;
+                    margin:0 auto;
+                  "
+                ></div>
+
+                <div class="text-sm mt-2">
+                  Pre · ${a.surveyPre}%
+                </div>
+
+              </div>
+
+
+              <div class="text-center">
+
+                <div
+                  class="chart-bar"
+                  style="
+                    height:${Math.max(a.surveyPost * 1.4, 5)}px;
+                    width:64px;
+                    margin:0 auto;
+                    background:linear-gradient(
+                      180deg,
+                      #10b981,
+                      #06b6d4
+                    );
+                  "
+                ></div>
+
+                <div class="text-sm mt-2">
+                  Post · ${a.surveyPost}%
+                </div>
+
+              </div>
+
+            </div>
+
+
+            <p
+              class="text-sm text-muted text-center mt-3"
+            >
+
+              ${
+                a.surveyCount > 0
+                  ? `Based on ${a.surveyCount} survey record(s)`
+                  : "No survey records available yet"
+              }
+
+            </p>
+
+
+            ${
+              a.surveyCount > 0
+                ? `
+                  <div class="text-center mt-2">
+
+                    <span class="stat-trend up">
+                      ${improvement >= 0 ? "+" : ""}${improvement} pts
+                    </span>
+
+                  </div>
+                `
+                : ""
+            }
+
+          </div>
+
+
+          <!-- Module Completion -->
+
+          <div class="card card-static">
+
+            <h3 class="mb-3">
+              Module Completion
+            </h3>
+
+
+            ${a.moduleCompletion
+              .map(function (module) {
+                return `
+
+                      <div class="mb-3">
+
+                        <div
+                          class="flex justify-between text-sm mb-1"
+                        >
+
+                          <span>
+                            ${module.name}
+                          </span>
+
+                          <span>
+                            ${module.value}%
+                          </span>
+
+                        </div>
+
+
+                        <div class="progress">
+
+                          <div
+                            class="progress-bar"
+                            style="
+                              width:${module.value}%
+                            "
+                          ></div>
+
+                        </div>
+
+                      </div>
+
+                    `;
+              })
+              .join("")}
+
+          </div>
+
+        </div>
+
+
+        <!-- ========================================== -->
+        <!-- ACTIVITY DETAILS -->
+        <!-- ========================================== -->
+
+        <div class="grid-2">
+
+
+          <!-- User Activity -->
+
+          <div class="card card-static">
+
+            <h3 class="mb-3">
+              Your CyberAware Activity
+            </h3>
+
+
+            <div
+              class="flex justify-between items-center mb-3"
+            >
+
+              <div>
+
+                <div
+                  class="stat-value"
+                  style="font-size:2rem"
+                >
+                  ${a.quizzesCompleted}
+                </div>
+
+                <div class="stat-label">
+                  Quizzes completed
+                </div>
+
+              </div>
+
+
+              <div class="text-right">
+
+                <div class="badge badge-danger mb-1">
+                  Best: ${a.bestQuizScore}%
+                </div>
+
+                <div class="text-xs text-muted">
+                  ${a.certificates} certificate(s)
+                </div>
+
+              </div>
+
+            </div>
+
+
+            <div class="progress progress-lg mb-2">
+
+              <div
+                class="progress-bar"
+                style="
+                  width:${Math.min(a.quizAverage, 100)}%;
+                "
+              ></div>
+
+            </div>
+
+
+            <div
+              class="flex justify-between text-xs text-muted"
+            >
+
+              <span>
+                Average score
+              </span>
+
+              <span>
+                ${a.quizAverage}%
+              </span>
+
+            </div>
+
+          </div>
+
+
+          <!-- Security Activity -->
+
+          <div class="card card-static">
+
+            <h3 class="mb-3">
+              Security Activity
+            </h3>
+
+
+            <div class="mb-3">
+
+              <div
+                class="flex justify-between items-center"
+              >
+
+                <span class="text-sm">
+                  🛡️ Awareness score
+                </span>
+
+                <strong>
+                  ${a.awarenessScore}%
+                </strong>
+
+              </div>
+
+            </div>
+
+
+            <div class="mb-3">
+
+              <div
+                class="flex justify-between items-center"
+              >
+
+                <span class="text-sm">
+                  🤖 AI scam analyses
+                </span>
+
+                <strong>
+                  ${a.aiChecks}
+                </strong>
+
+              </div>
+
+            </div>
+
+
+            <div class="mb-3">
+
+              <div
+                class="flex justify-between items-center"
+              >
+
+                <span class="text-sm">
+                  🚨 Community reports
+                </span>
+
+                <strong>
+                  ${a.communityReports}
+                </strong>
+
+              </div>
+
+            </div>
+
+
+            <div>
+
+              <div
+                class="flex justify-between items-center"
+              >
+
+                <span class="text-sm">
+                  🔥 Learning streak
+                </span>
+
+                <strong>
+                  ${a.streak} days
+                </strong>
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      `;
+
+        // =======================================================
+        // REFRESH BUTTON
+        // =======================================================
+
+        document
+          .getElementById("refreshAnalyticsBtn")
+          .addEventListener("click", function () {
+            App.toast("Refreshing analytics...", "success");
+
+            const user = firebase.auth().currentUser;
+
+            if (user) {
+              loadAnalytics(user);
+            }
+          });
+      }
+
+      // =========================================================
+      // 17. ESCAPE HTML
+      // =========================================================
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, "&amp;")
+
+          .replace(/</g, "&lt;")
+
+          .replace(/>/g, "&gt;")
+
+          .replace(/"/g, "&quot;")
+
+          .replace(/'/g, "&#039;");
+      }
+    </script>
+  </body>
+</html>

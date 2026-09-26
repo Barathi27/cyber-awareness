@@ -1,0 +1,205 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ==========================================
+    // USERS
+    // ==========================================
+    match /users/{userId} {
+
+      // A logged-in user can read only their own profile
+      allow read: if request.auth != null
+                  && request.auth.uid == userId;
+
+      // Students can create only their own profile
+      // and cannot create themselves as admin
+      allow create: if request.auth != null
+                    && request.auth.uid == userId
+                    && request.resource.data.role == "student";
+
+      // Users can update only their own profile.
+      // Role cannot be changed by the client.
+      allow update: if request.auth != null
+                    && request.auth.uid == userId
+                    && request.resource.data.role == resource.data.role
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly([
+                         "name",
+                         "email",
+                         "emailVerified",
+                         "awarenessScore",
+                         "modulesCompleted",
+                         "quizzesCompleted",
+                         "certificates",
+                         "streak",
+                         "securityLevel",
+                         "completedModules",
+                         "preSurveyScore",
+                         "preSurveyCompleted",
+                         "preSurveyCompletedAt",
+                         "postSurveyScore",
+                         "postSurveyCompleted",
+                         "postSurveyCompletedAt",
+                         "quizAttempts",
+                         "bestQuizScore",
+                         "lastQuizScore",
+                         "lastQuizCorrect",
+                         "lastQuizTotal",
+                         "lastQuizAt",
+                         "college",
+                         "department",
+                         "year",
+                         "updatedAt"
+                       ]);
+
+      // Users cannot delete their profile
+      allow delete: if false;
+
+
+      // ==========================================
+      // SURVEYS
+      // ==========================================
+      match /surveys/{surveyId} {
+
+        // User can read only their own surveys
+        allow read: if request.auth != null
+                    && request.auth.uid == userId;
+
+        // User can create only their own survey
+        allow create: if request.auth != null
+                      && request.auth.uid == userId
+                      && request.resource.data.userId == request.auth.uid;
+
+        // Survey submissions cannot be modified
+        allow update: if false;
+
+        // Survey submissions cannot be deleted
+        allow delete: if false;
+      }
+
+
+      // ==========================================
+      // QUIZ ATTEMPTS
+      // ==========================================
+      match /quizAttempts/{attemptId} {
+
+        // User can read only their own quiz attempts
+        allow read: if request.auth != null
+                    && request.auth.uid == userId;
+
+        // User can create only their own quiz attempt
+        allow create: if request.auth != null
+                      && request.auth.uid == userId;
+
+        // Quiz attempts cannot be modified
+        allow update: if false;
+
+        // Quiz attempts cannot be deleted
+        allow delete: if false;
+      }
+    }
+
+
+    // ==========================================
+    // LEADERBOARD
+    // ==========================================
+    match /leaderboard/{userId} {
+
+      // Any logged-in student/user can view the leaderboard
+      allow read: if request.auth != null;
+
+      // A user can create/update only their own leaderboard entry.
+      //
+      // The values must match the corresponding values
+      // in their users/{userId} document.
+      allow create, update: if request.auth != null
+                            && request.auth.uid == userId
+
+                            // Required fields
+                            && request.resource.data.name is string
+                            && request.resource.data.bestQuizScore is number
+                            && request.resource.data.awarenessScore is number
+                            && request.resource.data.certificates is number
+                            && request.resource.data.quizzesCompleted is number
+
+                            // Name must match user profile
+                            && request.resource.data.name
+                               == get(
+                                    /databases/$(database)/documents/users/$(userId)
+                                  ).data.name
+
+                            // Best quiz score must match user profile
+                            && request.resource.data.bestQuizScore
+                               == get(
+                                    /databases/$(database)/documents/users/$(userId)
+                                  ).data.bestQuizScore
+
+                            // Awareness score must match user profile
+                            && request.resource.data.awarenessScore
+                               == get(
+                                    /databases/$(database)/documents/users/$(userId)
+                                  ).data.awarenessScore
+
+                            // Certificates must match user profile
+                            && request.resource.data.certificates
+                               == get(
+                                    /databases/$(database)/documents/users/$(userId)
+                                  ).data.certificates
+
+                            // Completed quizzes must match user profile
+                            && request.resource.data.quizzesCompleted
+                               == get(
+                                    /databases/$(database)/documents/users/$(userId)
+                                  ).data.quizzesCompleted;
+
+      // Leaderboard entries cannot be deleted by clients
+      allow delete: if false;
+    }
+
+
+    // ==========================================
+    // AI ANALYSES
+    // ==========================================
+    match /aiAnalyses/{analysisId} {
+
+      // User can create only their own AI analysis
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid;
+
+      // User can read only their own AI analyses
+      allow read: if request.auth != null
+                  && resource.data.uid == request.auth.uid;
+
+      // AI analysis records cannot be modified
+      allow update: if false;
+
+      // AI analysis records cannot be deleted
+      allow delete: if false;
+    }
+
+
+    // ==========================================
+    // COMMUNITY ALERT WALL
+    // ==========================================
+    match /alertWall/{alertId} {
+
+      // Any logged-in user can view scam reports
+      allow read: if request.auth != null;
+
+      // A logged-in user can create only their own report
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid;
+
+      // Only an admin can update a report
+      // This will be used later for Admin Verification
+      allow update: if request.auth != null
+                    && get(
+                         /databases/$(database)/documents/users/$(request.auth.uid)
+                       ).data.role == "admin";
+
+      // Reports cannot be deleted by clients
+      allow delete: if false;
+    }
+  }
+}

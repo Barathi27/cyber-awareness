@@ -1,0 +1,1825 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>AI Scam Checker · CyberAware</title>
+
+    <!-- GOOGLE FONTS -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&family=Plus+Jakarta+Sans:wght@700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- TAILWIND -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- PROJECT CSS -->
+    <link rel="stylesheet" href="../css/styles.css" />
+
+    <style>
+      .ai-hero-input {
+        min-height: 200px;
+        font-size: 1.05rem;
+        border-radius: 18px;
+        border: 2px solid var(--border);
+        background: var(--bg-elevated);
+        padding: 1.25rem;
+        width: 100%;
+        color: var(--text);
+        resize: vertical;
+        transition:
+          border-color var(--transition),
+          box-shadow var(--transition);
+      }
+
+      .ai-hero-input:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow:
+          0 0 0 4px rgba(79, 70, 229, 0.2),
+          var(--glow);
+      }
+
+      .analyze-glow {
+        box-shadow: 0 0 40px rgba(124, 58, 237, 0.45);
+      }
+
+      .scan-line {
+        height: 2px;
+        background: var(--gradient);
+        animation: shimmer 1.2s infinite;
+        background-size: 200% 100%;
+        border-radius: 2px;
+        margin: 1rem 0;
+      }
+
+      .screenshot-preview {
+        max-width: 260px;
+        max-height: 180px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        object-fit: contain;
+        margin-top: 10px;
+      }
+
+      .ai-engine-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.75rem;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="app-root"></div>
+
+    <!-- =========================================================
+         DETAIL MODAL
+    ========================================================== -->
+    <div class="modal-overlay" id="report-success-modal">
+      <div class="modal">
+        <div class="modal-header">
+          <h2>Alert Reported</h2>
+          <button class="modal-close" data-modal-close>✕</button>
+        </div>
+
+        <div class="p-3">
+          <div class="alert alert-success">
+            <div>
+              <strong>Report submitted successfully.</strong>
+              <p class="text-sm text-muted mt-1">
+                The report has been added to the Community Alert Wall and is
+                waiting for admin verification.
+              </p>
+            </div>
+          </div>
+
+          <div class="flex gap-2 mt-4">
+            <a href="community.html" class="btn btn-primary">
+              Open Alert Wall
+            </a>
+
+            <button class="btn btn-secondary" data-modal-close>
+              Stay Here
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROJECT FILES -->
+    <script src="../js/data.js"></script>
+    <script src="../js/app.js"></script>
+    <script src="../js/components.js"></script>
+
+    <!-- FIREBASE CORE + AUTH + FUNCTIONS SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
+
+    <!-- FIREBASE CONFIG -->
+    <script src="../js/firebase-config.js"></script>
+
+    <script>
+      // =========================================================
+      // INITIALIZE PAGE
+      // =========================================================
+
+      Layout.base = "";
+
+      document.getElementById("app-root").innerHTML = `
+        ${Layout.loader()}
+
+        <div class="app-shell">
+          ${Layout.studentSidebar()}
+
+          <div class="main-area">
+            ${Layout.topbar("AI Scam Checker")}
+
+            <main
+              class="page-content"
+              id="page-main"
+            ></main>
+          </div>
+        </div>
+      `;
+
+      Layout.renderNotifs();
+      App.init();
+
+      // =========================================================
+      // STATE
+      // =========================================================
+
+      let result = null;
+      let analyzing = false;
+      let currentText = "";
+      let aiHistory = [];
+
+      let firebaseDb = null;
+      let currentUser = null;
+
+      let reportedAnalysisIds = new Set();
+
+      // Uploaded screenshot Base64 Data URL
+      window.selectedScreenshotData = null;
+
+      // =========================================================
+      // FIRESTORE SDK
+      // =========================================================
+
+      const FIRESTORE_SDK_URL =
+        "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js";
+
+      // =========================================================
+      // LOAD FIRESTORE SDK
+      // =========================================================
+
+      function loadFirestoreSDK() {
+        return new Promise(function (resolve, reject) {
+          if (
+            typeof firebase !== "undefined" &&
+            typeof firebase.firestore === "function"
+          ) {
+            console.info("[CyberAware] Firestore SDK already available.");
+
+            resolve();
+            return;
+          }
+
+          const existingScript = document.querySelector(
+            'script[data-cyberaware-firestore="true"]',
+          );
+
+          if (existingScript) {
+            existingScript.addEventListener(
+              "load",
+              function () {
+                if (
+                  typeof firebase !== "undefined" &&
+                  typeof firebase.firestore === "function"
+                ) {
+                  resolve();
+                } else {
+                  reject(
+                    new Error(
+                      "Firestore SDK loaded but firebase.firestore is unavailable.",
+                    ),
+                  );
+                }
+              },
+              { once: true },
+            );
+
+            existingScript.addEventListener(
+              "error",
+              function () {
+                reject(new Error("Failed to load Firebase Firestore SDK."));
+              },
+              { once: true },
+            );
+
+            return;
+          }
+
+          const script = document.createElement("script");
+
+          script.src = FIRESTORE_SDK_URL;
+
+          script.setAttribute("data-cyberaware-firestore", "true");
+
+          script.async = false;
+
+          script.onload = function () {
+            if (
+              typeof firebase !== "undefined" &&
+              typeof firebase.firestore === "function"
+            ) {
+              console.info("[CyberAware] Firestore SDK loaded successfully.");
+
+              resolve();
+            } else {
+              reject(
+                new Error(
+                  "Firestore SDK loaded but firebase.firestore() is unavailable.",
+                ),
+              );
+            }
+          };
+
+          script.onerror = function () {
+            reject(new Error("Unable to download Firebase Firestore SDK."));
+          };
+
+          document.head.appendChild(script);
+        });
+      }
+
+      // =========================================================
+      // INITIALIZE FIREBASE
+      // =========================================================
+
+      async function initializeFirebaseForAI() {
+        try {
+          console.info(
+            "[CyberAware] Starting AI Scam Checker initialization...",
+          );
+
+          // -------------------------------------------------------
+          // WAIT FOR FIREBASE APP + AUTH
+          // -------------------------------------------------------
+
+          if (
+            !window.firebaseReady ||
+            typeof window.firebaseReady.then !== "function"
+          ) {
+            throw new Error("Firebase configuration is not ready.");
+          }
+
+          await window.firebaseReady;
+
+          console.info("[CyberAware] Firebase App + Authentication ready.");
+
+          // -------------------------------------------------------
+          // LOAD FIRESTORE
+          // -------------------------------------------------------
+
+          await loadFirestoreSDK();
+
+          // -------------------------------------------------------
+          // VERIFY FIREBASE
+          // -------------------------------------------------------
+
+          if (typeof firebase === "undefined") {
+            throw new Error("Firebase library is unavailable.");
+          }
+
+          if (typeof firebase.firestore !== "function") {
+            throw new Error("Firebase Firestore SDK is not available.");
+          }
+
+          // -------------------------------------------------------
+          // INITIALIZE FIRESTORE
+          // -------------------------------------------------------
+
+          firebaseDb = firebase.firestore();
+
+          console.info("[CyberAware] Firestore initialized.");
+
+          // -------------------------------------------------------
+          // CURRENT USER
+          // -------------------------------------------------------
+
+          currentUser = firebase.auth().currentUser;
+
+          if (!currentUser) {
+            console.warn("[CyberAware] No authenticated user found.");
+
+            App.toast("Please login before using AI Scam Checker.", "warning");
+
+            render();
+
+            return false;
+          }
+
+          // -------------------------------------------------------
+          // EMAIL VERIFICATION
+          // -------------------------------------------------------
+
+          if (!currentUser.emailVerified) {
+            App.toast(
+              "Please verify your email before using AI Scam Checker.",
+              "warning",
+            );
+
+            render();
+
+            return false;
+          }
+
+          console.info(
+            "[CyberAware] AI Scam Checker connected:",
+            currentUser.uid,
+          );
+
+          // -------------------------------------------------------
+          // LOAD HISTORY
+          // -------------------------------------------------------
+
+          await loadAIHistory();
+
+          return true;
+        } catch (error) {
+          console.error(
+            "[CyberAware] Firebase AI Checker initialization failed:",
+            error,
+          );
+
+          App.toast("Firebase connection failed. Please try again.", "danger");
+
+          return false;
+        }
+      }
+
+      // =========================================================
+      // LOAD AI HISTORY
+      // =========================================================
+
+      async function loadAIHistory() {
+        if (!firebaseDb || !currentUser) {
+          return;
+        }
+
+        try {
+          const snapshot = await firebaseDb
+            .collection("aiAnalyses")
+            .where("uid", "==", currentUser.uid)
+            .get();
+
+          aiHistory = [];
+
+          snapshot.forEach(function (doc) {
+            const data = doc.data();
+
+            aiHistory.push({
+              id: doc.id,
+
+              message: data.message || "",
+
+              preview: data.preview || data.message || "",
+
+              risk: Number(data.risk || 0),
+
+              label: data.label || "Unknown",
+
+              found: Array.isArray(data.found)
+                ? data.found
+                : Array.isArray(data.keywords)
+                  ? data.keywords
+                  : [],
+
+              explanation: data.explanation || "",
+
+              tips: Array.isArray(data.tips) ? data.tips : [],
+
+              time: formatFirestoreTime(data.createdAt),
+
+              timestamp: getFirestoreTimestamp(data.createdAt),
+
+              reportedToAlertWall: data.reportedToAlertWall === true,
+            });
+          });
+
+          aiHistory.sort(function (a, b) {
+            return Number(b.timestamp || 0) - Number(a.timestamp || 0);
+          });
+
+          aiHistory = aiHistory.slice(0, 20);
+
+          render();
+
+          console.info("[CyberAware] AI history loaded:", aiHistory.length);
+        } catch (error) {
+          console.error("[CyberAware] Failed to load AI history:", error);
+
+          App.toast("Unable to load analysis history.", "warning");
+        }
+      }
+
+      // =========================================================
+      // FIRESTORE TIMESTAMP
+      // =========================================================
+
+      function getFirestoreTimestamp(timestamp) {
+        if (!timestamp) {
+          return 0;
+        }
+
+        try {
+          if (typeof timestamp.toMillis === "function") {
+            return timestamp.toMillis();
+          }
+
+          if (typeof timestamp.toDate === "function") {
+            return timestamp.toDate().getTime();
+          }
+
+          const date = new Date(timestamp);
+
+          if (!isNaN(date.getTime())) {
+            return date.getTime();
+          }
+        } catch (error) {
+          console.warn("[CyberAware] Timestamp conversion failed:", error);
+        }
+
+        return 0;
+      }
+
+      // =========================================================
+      // FORMAT TIME
+      // =========================================================
+
+      function formatFirestoreTime(timestamp) {
+        if (!timestamp) {
+          return "Just now";
+        }
+
+        try {
+          let date;
+
+          if (timestamp && typeof timestamp.toDate === "function") {
+            date = timestamp.toDate();
+          } else {
+            date = new Date(timestamp);
+          }
+
+          if (!date || isNaN(date.getTime())) {
+            return "Recently";
+          }
+
+          return date.toLocaleString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+        } catch (error) {
+          return "Recently";
+        }
+      }
+
+      // =========================================================
+      // SAVE AI ANALYSIS
+      // =========================================================
+
+      async function saveAIAnalysis(text, scored) {
+        if (!firebaseDb) {
+          throw new Error("Firestore database is not initialized.");
+        }
+
+        if (!currentUser) {
+          throw new Error("User is not connected to Firebase.");
+        }
+
+        if (!currentUser.emailVerified) {
+          throw new Error("User email is not verified.");
+        }
+
+        const analysisData = {
+          uid: currentUser.uid,
+
+          email: currentUser.email || "",
+
+          message: text,
+
+          preview: text.length > 100 ? text.substring(0, 100) + "..." : text,
+
+          risk: Number(scored.risk || 0),
+
+          label: scored.label || "Unknown",
+
+          found: Array.isArray(scored.found) ? scored.found : [],
+
+          explanation: scored.explanation || "",
+
+          tips: Array.isArray(scored.tips) ? scored.tips : [],
+
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+
+          engine: "Groq Llama 4 Scout",
+        };
+
+        const documentReference = await firebaseDb
+          .collection("aiAnalyses")
+          .add(analysisData);
+
+        console.info("[CyberAware] AI analysis saved:", documentReference.id);
+
+        return documentReference;
+      }
+
+      // =========================================================
+      // CALL GROQ THROUGH FIREBASE CLOUD FUNCTION
+      // =========================================================
+
+      async function analyzeWithGroq(text, imageData) {
+        if (typeof firebase === "undefined") {
+          throw new Error("Firebase is not loaded.");
+        }
+
+        if (!firebase.functions || typeof firebase.functions !== "function") {
+          throw new Error("Firebase Functions SDK is not loaded.");
+        }
+
+        console.info(
+          "[CyberAware] Calling Groq AI through Firebase Cloud Function...",
+        );
+
+        const functions = firebase.app().functions("asia-south1");
+
+        // =======================================================
+        // LOCAL FIREBASE FUNCTIONS EMULATOR
+        // =======================================================
+        // The Cloud Function is running locally on port 5001.
+        // This keeps the Groq API key on the backend and lets the
+        // frontend call the local analyzeScam function during testing.
+        functions.useEmulator("127.0.0.1", 5001);
+
+        console.info(
+          "[CyberAware] Firebase Functions connected to local emulator:",
+          "127.0.0.1:5001",
+        );
+
+        const analyzeScamFunction = functions.httpsCallable("analyzeScam");
+
+        const response = await analyzeScamFunction({
+          text: text || "",
+
+          imageData: imageData || null,
+        });
+
+        if (!response || !response.data) {
+          throw new Error("AI function returned an empty response.");
+        }
+
+        const data = response.data;
+
+        console.info("[CyberAware] Groq AI response received:", data);
+
+        const risk = Math.max(0, Math.min(99, Number(data.risk || 0)));
+
+        let label = data.label || "Low Risk";
+
+        let badge = "badge-success";
+
+        if (risk >= 80) {
+          label = "Critical Scam";
+
+          badge = "badge-danger";
+        } else if (risk >= 60) {
+          label = "High Risk";
+
+          badge = "badge-warning";
+        } else if (risk >= 40) {
+          label = "Suspicious";
+
+          badge = "badge-info";
+        }
+
+        return {
+          risk: risk,
+
+          label: label,
+
+          badge: badge,
+
+          found: Array.isArray(data.keywords)
+            ? data.keywords
+            : Array.isArray(data.found)
+              ? data.found
+              : [],
+
+          explanation:
+            data.explanation || "The AI analyzed the submitted content.",
+
+          tips: Array.isArray(data.tips)
+            ? data.tips
+            : [
+                "Verify the sender.",
+                "Do not share OTPs.",
+                "Do not make payments to unknown persons.",
+              ],
+
+          engine: data.engine || "Groq Llama 4 Scout",
+        };
+      }
+
+      // =========================================================
+      // REPORT TO ALERT WALL
+      // =========================================================
+
+      async function reportToAlertWall() {
+        if (!result) {
+          return;
+        }
+
+        if (!currentUser) {
+          App.toast("Please login before reporting.", "warning");
+
+          return;
+        }
+
+        if (!firebaseDb) {
+          App.toast("Firebase is not ready. Please try again.", "danger");
+
+          return;
+        }
+
+        // -------------------------------------------------------
+        // ONLY HIGH / CRITICAL
+        // -------------------------------------------------------
+
+        if (Number(result.risk || 0) < 60) {
+          App.toast(
+            "Only High Risk or Critical Scam results can be reported.",
+            "warning",
+          );
+
+          return;
+        }
+
+        const reportButton = document.getElementById("report-alert-btn");
+
+        if (reportButton) {
+          reportButton.disabled = true;
+
+          reportButton.textContent = "Submitting Report…";
+        }
+
+        try {
+          const profileSnapshot = await firebaseDb
+            .collection("users")
+            .doc(currentUser.uid)
+            .get();
+
+          const profile = profileSnapshot.exists ? profileSnapshot.data() : {};
+
+          const author =
+            profile.name ||
+            currentUser.displayName ||
+            currentUser.email ||
+            "Student";
+
+          const college = profile.college || "MVGR College of Engineering";
+
+          let category = "Other";
+
+          const combined = (
+            (currentText || "") +
+            " " +
+            (result.found || []).join(" ")
+          ).toLowerCase();
+
+          if (
+            /internship|placement|job|recruitment|registration fee/.test(
+              combined,
+            )
+          ) {
+            category = "Internship";
+          } else if (
+            /scholarship|education grant|student grant/.test(combined)
+          ) {
+            category = "Scholarship";
+          } else if (
+            /otp|phishing|bank|kyc|upi|password|account blocked/.test(combined)
+          ) {
+            category = "Phishing";
+          } else if (
+            /whatsapp|telegram|instagram|social media/.test(combined)
+          ) {
+            category = "Social";
+          }
+
+          const alertData = {
+            uid: currentUser.uid,
+
+            source: "ai-checker",
+
+            title:
+              result.label === "Critical Scam"
+                ? "AI Detected Critical Scam"
+                : "AI Detected High-Risk Scam",
+
+            body:
+              currentText ||
+              "Suspicious content detected from uploaded screenshot.",
+
+            category: category,
+
+            risk: result.risk >= 80 ? "Critical" : "High",
+
+            riskScore: Number(result.risk || 0),
+
+            author: author,
+
+            college: college,
+
+            likes: 0,
+
+            comments: 0,
+
+            verified: false,
+
+            trending: false,
+
+            aiExplanation: result.explanation || "",
+
+            keywords: Array.isArray(result.found) ? result.found : [],
+
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          };
+
+          const reportReference = await firebaseDb
+            .collection("alertWall")
+            .add(alertData);
+
+          console.info(
+            "[CyberAware] Alert Wall report created:",
+            reportReference.id,
+          );
+
+          App.toast("Report submitted to Alert Wall.", "success");
+
+          // -------------------------------------------------------
+          // SHOW SUCCESS MODAL
+          // -------------------------------------------------------
+
+          const modal = document.getElementById("report-success-modal");
+
+          if (modal) {
+            modal.classList.add("open");
+          }
+
+          // -------------------------------------------------------
+          // DISABLE REPORT BUTTON
+          // -------------------------------------------------------
+
+          if (reportButton) {
+            reportButton.disabled = true;
+
+            reportButton.textContent = "✓ Reported to Alert Wall";
+          }
+        } catch (error) {
+          console.error("[CyberAware] Alert Wall report error:", error);
+
+          if (reportButton) {
+            reportButton.disabled = false;
+
+            reportButton.innerHTML = "🚨 Report to Alert Wall";
+          }
+
+          App.toast("Unable to submit the Alert Wall report.", "danger");
+        }
+      }
+
+      // =========================================================
+      // RENDER PAGE
+      // =========================================================
+
+      function render() {
+        const main = document.getElementById("page-main");
+
+        if (!main) {
+          return;
+        }
+
+        main.innerHTML = `
+
+          <!-- PAGE HEADER -->
+
+          <div class="page-header animate-in">
+
+            <div
+              class="flex justify-between flex-wrap gap-3 items-start"
+            >
+
+              <div>
+
+                <h1>
+                  Custom
+                  <span class="gradient-text">
+                    AI Scam Checker
+                  </span>
+                </h1>
+
+                <p>
+                  Paste a suspicious message
+                  or upload a screenshot
+                  and analyze its scam risk using AI.
+                </p>
+
+              </div>
+
+
+              <span class="badge badge-primary ai-engine-badge">
+                🤖 Groq AI
+              </span>
+
+            </div>
+
+          </div>
+
+
+          <!-- INPUT CARD -->
+
+          <div
+            class="card card-static animate-in"
+            style="
+              padding:1.75rem;
+              margin-bottom:1.5rem;
+              background:var(--gradient-soft);
+              border-color:rgba(124,58,237,0.35)
+            "
+          >
+
+            <label
+              class="form-label"
+              for="scam-input"
+            >
+              Paste Suspicious Message
+            </label>
+
+
+            <textarea
+              id="scam-input"
+              class="ai-hero-input"
+              placeholder="Paste the suspicious SMS, WhatsApp message, email, internship offer, scholarship message, payment request, or any other message here..."
+            >${escapeHtml(currentText)}</textarea>
+
+
+            <div
+              class="flex flex-wrap gap-3 mt-4 items-center"
+            >
+
+              <!-- UPLOAD -->
+
+              <label
+                class="btn btn-secondary"
+                style="cursor:pointer"
+              >
+
+                📎 Upload Screenshot
+
+                <input
+                  type="file"
+                  accept="image/*"
+                  id="shot-upload"
+                  hidden
+                />
+
+              </label>
+
+
+              <span
+                class="text-xs text-muted"
+                id="file-name"
+              >
+                ${
+                  window.selectedScreenshotData
+                    ? "Screenshot selected"
+                    : "No file chosen"
+                }
+              </span>
+
+
+              <div style="flex:1"></div>
+
+
+              <!-- ANALYZE -->
+
+              <button
+                class="
+                  btn
+                  btn-primary
+                  btn-lg
+                  analyze-glow
+                "
+                id="analyze-btn"
+                ${analyzing ? "disabled" : ""}
+              >
+
+                ${
+                  analyzing
+                    ? `
+                      <span
+                        class="spinner"
+                        style="
+                          width:18px;
+                          height:18px;
+                          border-width:2px
+                        "
+                      ></span>
+
+                      Analyzing with Groq…
+                    `
+                    : `
+                      ⚡ Analyze with AI
+                    `
+                }
+
+              </button>
+
+            </div>
+
+
+            <!-- SCREENSHOT PREVIEW -->
+
+            ${
+              window.selectedScreenshotData
+                ? `
+                  <div class="mt-3">
+
+                    <div class="text-xs text-muted">
+                      Screenshot Preview
+                    </div>
+
+                    <img
+                      src="${window.selectedScreenshotData}"
+                      class="screenshot-preview"
+                      alt="Selected screenshot preview"
+                    />
+
+                  </div>
+                `
+                : ""
+            }
+
+
+            ${
+              analyzing
+                ? `
+                  <div class="scan-line"></div>
+
+                  <p
+                    class="
+                      text-sm
+                      text-muted
+                      text-center
+                    "
+                  >
+                    Sending content securely to AI ·
+                    analyzing scam indicators ·
+                    checking risk ·
+                    saving result…
+                  </p>
+                `
+                : ""
+            }
+
+          </div>
+
+
+          <!-- RESULT -->
+
+          <div id="result-area">
+            ${result ? resultHTML(result) : emptyResult()}
+          </div>
+
+
+          <!-- HISTORY -->
+
+          <div class="card card-static mt-4">
+
+            <div
+              class="
+                flex
+                justify-between
+                items-center
+                mb-3
+              "
+            >
+
+              <h3>
+                Analysis History
+              </h3>
+
+              <span class="badge badge-info">
+                ${aiHistory.length}
+                recent
+              </span>
+
+            </div>
+
+
+            <div class="table-wrap">
+
+              <table class="data-table">
+
+                <thead>
+
+                  <tr>
+
+                    <th>
+                      Preview
+                    </th>
+
+                    <th>
+                      Risk
+                    </th>
+
+                    <th>
+                      Label
+                    </th>
+
+                    <th>
+                      When
+                    </th>
+
+                    <th></th>
+
+                  </tr>
+
+                </thead>
+
+
+                <tbody>
+
+                  ${
+                    aiHistory.length
+                      ? aiHistory
+                          .map(function (h) {
+                            return `
+
+                              <tr>
+
+                                <td
+                                  class="font-mono text-sm"
+                                >
+                                  ${escapeHtml(h.preview || "")}
+                                </td>
+
+
+                                <td>
+                                  <strong>
+                                    ${Number(h.risk || 0)}%
+                                  </strong>
+                                </td>
+
+
+                                <td>
+
+                                  <span
+                                    class="
+                                      badge
+                                      ${
+                                        Number(h.risk || 0) >= 80
+                                          ? "badge-danger"
+                                          : Number(h.risk || 0) >= 60
+                                            ? "badge-warning"
+                                            : "badge-info"
+                                      }
+                                    "
+                                  >
+                                    ${escapeHtml(h.label || "Unknown")}
+                                  </span>
+
+                                </td>
+
+
+                                <td
+                                  class="
+                                    text-muted
+                                    text-sm
+                                  "
+                                >
+                                  ${escapeHtml(h.time || "")}
+                                </td>
+
+
+                                <td>
+
+                                  <button
+                                    class="
+                                      btn
+                                      btn-ghost
+                                      btn-sm
+                                    "
+                                    data-replay="${encodeURIComponent(
+                                      h.message || "",
+                                    )}"
+                                  >
+                                    Re-analyze
+                                  </button>
+
+                                </td>
+
+                              </tr>
+
+                            `;
+                          })
+                          .join("")
+                      : `
+
+                        <tr>
+
+                          <td
+                            colspan="5"
+                            class="
+                              text-muted
+                              text-center
+                            "
+                          >
+                            No analysis history yet.
+                          </td>
+
+                        </tr>
+
+                      `
+                  }
+
+                </tbody>
+
+              </table>
+
+            </div>
+
+          </div>
+
+        `;
+
+        // =======================================================
+        // FILE UPLOAD
+        // =======================================================
+
+        const upload = document.getElementById("shot-upload");
+
+        if (upload) {
+          upload.onchange = function (event) {
+            const file = event.target.files?.[0];
+
+            if (!file) {
+              window.selectedScreenshotData = null;
+
+              render();
+
+              return;
+            }
+
+            if (!file.type.startsWith("image/")) {
+              window.selectedScreenshotData = null;
+
+              App.toast("Please select a valid image file.", "warning");
+
+              return;
+            }
+
+            if (file.size > 5 * 1024 * 1024) {
+              window.selectedScreenshotData = null;
+
+              App.toast("Screenshot must be smaller than 5 MB.", "warning");
+
+              return;
+            }
+
+            const reader = new FileReader();
+
+            reader.onload = function () {
+              window.selectedScreenshotData = reader.result;
+
+              App.toast(
+                "Screenshot attached successfully. Click Analyze with AI.",
+                "success",
+              );
+
+              render();
+            };
+
+            reader.onerror = function () {
+              window.selectedScreenshotData = null;
+
+              App.toast("Unable to read the screenshot.", "danger");
+            };
+
+            reader.readAsDataURL(file);
+          };
+        }
+
+        // =======================================================
+        // ANALYZE BUTTON
+        // =======================================================
+
+        const analyzeButton = document.getElementById("analyze-btn");
+
+        if (analyzeButton) {
+          analyzeButton.onclick = analyze;
+        }
+
+        // =======================================================
+        // REPLAY
+        // =======================================================
+
+        document.querySelectorAll("[data-replay]").forEach(function (button) {
+          button.onclick = function () {
+            const text = decodeURIComponent(button.dataset.replay);
+
+            currentText = text;
+
+            window.selectedScreenshotData = null;
+
+            result = null;
+
+            render();
+
+            const input = document.getElementById("scam-input");
+
+            if (input) {
+              input.focus();
+            }
+          };
+        });
+
+        // =======================================================
+        // ANALYZE AGAIN
+        // =======================================================
+
+        const analyzeAgain = document.getElementById("analyze-again");
+
+        if (analyzeAgain) {
+          analyzeAgain.onclick = function () {
+            result = null;
+
+            render();
+
+            window.scrollTo({
+              top: 0,
+
+              behavior: "smooth",
+            });
+          };
+        }
+
+        // =======================================================
+        // REPORT ALERT
+        // =======================================================
+
+        const reportButton = document.getElementById("report-alert-btn");
+
+        if (reportButton) {
+          reportButton.onclick = reportToAlertWall;
+        }
+
+        // =======================================================
+        // MODAL CLOSE
+        // =======================================================
+
+        document
+          .querySelectorAll("[data-modal-close]")
+          .forEach(function (button) {
+            button.onclick = function () {
+              const modal = button.closest(".modal-overlay");
+
+              if (modal) {
+                modal.classList.remove("open");
+              }
+            };
+          });
+      }
+
+      // =========================================================
+      // EMPTY RESULT
+      // =========================================================
+
+      function emptyResult() {
+        return `
+
+          <div
+            class="
+              empty-state
+              card
+              card-static
+            "
+          >
+
+            <div class="empty-icon">
+              🤖
+            </div>
+
+
+            <h3>
+              AI results will appear here
+            </h3>
+
+
+            <p class="text-sm">
+
+              Paste a suspicious message
+              or upload a screenshot
+              and click
+              <strong>
+                Analyze with AI
+              </strong>
+              to check its scam risk.
+
+            </p>
+
+          </div>
+
+        `;
+      }
+
+      // =========================================================
+      // RESULT HTML
+      // =========================================================
+
+      function resultHTML(r) {
+        const canReport = Number(r.risk || 0) >= 60;
+
+        return `
+
+          <div
+            class="grid-2 animate-in"
+            style="align-items:start"
+          >
+
+            <!-- RESULT CARD -->
+
+            <div class="card card-static">
+
+              <div
+                class="
+                  flex
+                  justify-between
+                  items-center
+                  mb-3
+                "
+              >
+
+                <h3>
+                  AI Result Card
+                </h3>
+
+
+                <span
+                  class="badge ${r.badge}"
+                >
+                  ${escapeHtml(r.label)}
+                </span>
+
+              </div>
+
+
+              <div
+                class="
+                  text-center
+                  mb-3
+                "
+              >
+
+                <div
+                  class="
+                    text-xs
+                    text-muted
+                    mb-2
+                  "
+                >
+                  Scam Probability Meter
+                </div>
+
+
+                <div
+                  style="
+                    font-size:3rem;
+                    font-weight:800
+                  "
+                  class="gradient-text"
+                >
+                  ${Number(r.risk || 0)}%
+                </div>
+
+
+                <div class="risk-meter">
+
+                  <div
+                    class="risk-needle"
+                    style="left:${Math.min(
+                      99,
+                      Math.max(0, Number(r.risk || 0)),
+                    )}%"
+                  ></div>
+
+                </div>
+
+
+                <div
+                  class="
+                    flex
+                    justify-between
+                    text-xs
+                    text-muted
+                  "
+                >
+
+                  <span>
+                    Safe
+                  </span>
+
+                  <span>
+                    Critical
+                  </span>
+
+                </div>
+
+              </div>
+
+
+              <!-- KEYWORDS -->
+
+              <h4
+                class="
+                  mb-2
+                  text-sm
+                "
+              >
+                Highlighted Suspicious Keywords
+              </h4>
+
+
+              <div class="mb-3">
+
+                ${
+                  r.found && r.found.length
+                    ? r.found
+                        .slice(0, 10)
+                        .map(function (keyword) {
+                          return `
+
+                            <span class="keyword">
+                              ${escapeHtml(keyword)}
+                            </span>
+
+                          `;
+                        })
+                        .join("")
+                    : `
+
+                      <span
+                        class="
+                          text-muted
+                          text-sm
+                        "
+                      >
+                        None flagged
+                      </span>
+
+                    `
+                }
+
+              </div>
+
+
+              <button
+                class="
+                  btn
+                  btn-secondary
+                  w-full
+                "
+                id="analyze-again"
+              >
+                Analyze Again
+              </button>
+
+            </div>
+
+
+            <!-- RIGHT SIDE -->
+
+            <div
+              class="
+                flex
+                flex-col
+                gap-4
+              "
+            >
+
+              <!-- EXPLANATION -->
+
+              <div class="card card-static">
+
+                <h3 class="mb-2">
+                  AI Explanation Panel
+                </h3>
+
+
+                <p class="text-sm text-muted">
+                  ${escapeHtml(r.explanation || "")}
+                </p>
+
+
+                <p
+                  class="
+                    text-xs
+                    text-muted
+                    mt-3
+                    font-mono
+                  "
+                >
+                  engine:
+                  ${escapeHtml(r.engine || "Groq Llama 4 Scout")}
+                  · storage:
+                  Firebase Firestore
+                </p>
+
+              </div>
+
+
+              <!-- SAFETY -->
+
+              <div class="card card-static">
+
+                <h3 class="mb-2">
+                  Safety Recommendations
+                </h3>
+
+
+                <ul
+                  style="padding-left:1.1rem"
+                  class="text-sm text-muted"
+                >
+
+                  ${
+                    Array.isArray(r.tips)
+                      ? r.tips
+                          .map(function (tip) {
+                            return `
+
+                              <li
+                                style="
+                                  margin-bottom:0.4rem
+                                "
+                              >
+                                ${escapeHtml(tip)}
+                              </li>
+
+                            `;
+                          })
+                          .join("")
+                      : ""
+                  }
+
+                </ul>
+
+
+                ${
+                  canReport
+                    ? `
+
+                      <button
+                        class="
+                          btn
+                          btn-danger
+                          btn-sm
+                          mt-3
+                        "
+                        id="report-alert-btn"
+                      >
+                        🚨 Report to Alert Wall
+                      </button>
+
+                      <p
+                        class="
+                          text-xs
+                          text-muted
+                          mt-2
+                        "
+                      >
+                        This report will be submitted as
+                        <strong>Pending review</strong>
+                        until an admin verifies it.
+                      </p>
+
+                    `
+                    : `
+
+                      <p
+                        class="
+                          text-xs
+                          text-muted
+                          mt-3
+                        "
+                      >
+                        Alert Wall reporting is available
+                        only for High Risk or Critical Scam results.
+                      </p>
+
+                    `
+                }
+
+              </div>
+
+            </div>
+
+          </div>
+
+        `;
+      }
+
+      // =========================================================
+      // ANALYZE
+      // =========================================================
+
+      async function analyze() {
+        const input = document.getElementById("scam-input");
+
+        if (!input) {
+          return;
+        }
+
+        const text = input.value.trim();
+
+        // =======================================================
+        // EMPTY INPUT
+        // =======================================================
+
+        if (!text && !window.selectedScreenshotData) {
+          App.toast(
+            "Please paste a message or upload a screenshot first.",
+            "warning",
+          );
+
+          input.focus();
+
+          return;
+        }
+
+        // =======================================================
+        // CHECK USER
+        // =======================================================
+
+        if (!currentUser) {
+          if (typeof firebase !== "undefined" && firebase.auth) {
+            currentUser = firebase.auth().currentUser;
+          }
+        }
+
+        if (!currentUser) {
+          App.toast("Please login before analyzing a message.", "warning");
+
+          return;
+        }
+
+        if (!currentUser.emailVerified) {
+          App.toast(
+            "Please verify your email before analyzing messages.",
+            "warning",
+          );
+
+          return;
+        }
+
+        // =======================================================
+        // CHECK FIREBASE
+        // =======================================================
+
+        if (!firebaseDb) {
+          App.toast(
+            "Firebase is still connecting. Please wait a moment.",
+            "warning",
+          );
+
+          return;
+        }
+
+        // =======================================================
+        // SAVE INPUT
+        // =======================================================
+
+        currentText = text;
+
+        analyzing = true;
+
+        result = null;
+
+        render();
+
+        try {
+          // -----------------------------------------------------
+          // ACTUAL GROQ AI ANALYSIS
+          // -----------------------------------------------------
+
+          const scored = await analyzeWithGroq(
+            text,
+            window.selectedScreenshotData,
+          );
+
+          console.info("[CyberAware] Groq analysis completed:", scored);
+
+          // -----------------------------------------------------
+          // SAVE AI ANALYSIS
+          // -----------------------------------------------------
+
+          await saveAIAnalysis(text || "Screenshot analysis", scored);
+
+          // -----------------------------------------------------
+          // FINISH
+          // -----------------------------------------------------
+
+          result = scored;
+
+          analyzing = false;
+
+          App.toast(
+            `Analysis complete — ${scored.label}`,
+            scored.risk >= 60 ? "warning" : "success",
+          );
+
+          await loadAIHistory();
+
+          render();
+
+          // -----------------------------------------------------
+          // SCROLL RESULT
+          // -----------------------------------------------------
+
+          const resultArea = document.getElementById("result-area");
+
+          if (resultArea) {
+            resultArea.scrollIntoView({
+              behavior: "smooth",
+              block: "start",
+            });
+          }
+        } catch (error) {
+          console.error("[CyberAware] AI analysis failed:", error);
+
+          analyzing = false;
+
+          render();
+
+          let message = "AI analysis failed. Please try again.";
+
+          if (error && error.message) {
+            message = error.message;
+          }
+
+          App.toast(message, "danger");
+        }
+      }
+
+      // =========================================================
+      // ESCAPE HTML
+      // =========================================================
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replace(/&/g, "&amp;")
+
+          .replace(/</g, "&lt;")
+
+          .replace(/>/g, "&gt;")
+
+          .replace(/"/g, "&quot;")
+
+          .replace(/'/g, "&#039;");
+      }
+
+      // =========================================================
+      // START
+      // =========================================================
+
+      render();
+
+      // =========================================================
+      // START FIREBASE CONNECTION
+      // =========================================================
+
+      initializeFirebaseForAI();
+    </script>
+  </body>
+</html>

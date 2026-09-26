@@ -1,0 +1,2021 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Learning Hub · CyberAware</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap"
+    rel="stylesheet"
+  />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <link rel="stylesheet" href="../css/styles.css" />
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+</head>
+
+<body>
+
+<div id="app-root">
+
+  <div style="
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    gap:12px;
+  ">
+    <div style="font-size:2rem;">🛡️</div>
+    <strong>Loading Learning Hub...</strong>
+    <span class="text-sm text-muted">Please wait</span>
+  </div>
+
+</div>
+
+
+<!-- Project files -->
+<script src="../js/data.js"></script>
+<script src="../js/app.js"></script>
+<script src="../js/components.js"></script>
+
+<!-- Firebase configuration -->
+<script src="../js/firebase-config.js"></script>
+
+
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+
+  console.log("[CyberAware] Learning Hub starting...");
+
+
+  /* =========================================================
+     FIREBASE
+  ========================================================= */
+
+  let auth = null;
+  let db = null;
+  let currentUser = null;
+  let studentData = null;
+  let activeModule = null;
+
+
+  /* =========================================================
+     LEARNING CONTENT
+  ========================================================= */
+
+  const moduleContent = {
+
+    "fake-news": {
+
+      introduction:
+        "Fake news is false or misleading information presented as genuine news. It can spread rapidly through social media, messaging applications and websites. Students should learn to verify information before believing or sharing it.",
+
+      concepts: [
+
+        {
+          title: "1. What is Fake News?",
+          text:
+            "Fake news is intentionally created or incorrectly presented information that can mislead people. It may contain false claims, edited images, misleading headlines or completely fabricated stories."
+        },
+
+        {
+          title: "2. Clickbait Headlines",
+          text:
+            "Clickbait headlines are designed to make users click on a story. They often use shocking words such as BREAKING, SHOCKING, URGENT or YOU WON'T BELIEVE THIS. Always read the complete article instead of trusting only the headline."
+        },
+
+        {
+          title: "3. Check the Source",
+          text:
+            "Before trusting a news article, check who published it. Look for the official website, author name, publication date and supporting sources."
+        },
+
+        {
+          title: "4. Verify Before Sharing",
+          text:
+            "If a message asks you to urgently forward it to everyone, stop and verify it first. Search for the same information on reliable news sources or official websites."
+        }
+
+      ],
+
+      example:
+        "Example: A WhatsApp message says that a college has cancelled examinations tomorrow. Instead of forwarding it, check the college's official website or contact the college administration.",
+
+      tips: [
+        "Check the source before believing a story.",
+        "Do not trust headlines alone.",
+        "Check publication dates.",
+        "Compare information with reliable sources.",
+        "Do not forward suspicious messages."
+      ]
+    },
+
+
+    "phishing": {
+
+      introduction:
+        "Phishing is a cyber attack in which criminals pretend to be trustworthy organizations or people in order to steal passwords, OTPs, banking information or other sensitive data.",
+
+      concepts: [
+
+        {
+          title: "1. What is Phishing?",
+          text:
+            "Phishing attacks usually arrive through email, SMS, social media or messaging applications. The attacker creates a fake message that appears to come from a trusted organization."
+        },
+
+        {
+          title: "2. Suspicious Links",
+          text:
+            "Attackers often send links that look similar to legitimate websites. Carefully inspect the domain name before entering your username or password."
+        },
+
+        {
+          title: "3. Urgent Messages",
+          text:
+            "Messages such as 'Your account will be blocked in 10 minutes' are commonly used to create panic. Do not act immediately. Verify the message through the official website."
+        },
+
+        {
+          title: "4. Credential Harvesting",
+          text:
+            "A fake login page may look exactly like Google, Microsoft, a bank or another service. When you enter your credentials, the attacker receives them."
+        }
+
+      ],
+
+      example:
+        "Example: You receive an email saying 'Your college account will be deleted today'. It contains a login link. Instead of clicking the link, open the official college portal manually.",
+
+      tips: [
+        "Never share your OTP.",
+        "Check the complete website address.",
+        "Avoid suspicious attachments.",
+        "Do not trust urgent messages automatically.",
+        "Use multi-factor authentication."
+      ]
+    },
+
+
+    "internship": {
+
+      introduction:
+        "Fake internship scams target students by promising attractive jobs, internships, certificates or placements. Attackers may ask students to pay registration, training or verification fees.",
+
+      concepts: [
+
+        {
+          title: "1. Fake Internship Offers",
+          text:
+            "Scammers may send professional-looking offer letters using company logos and fake signatures. A professional-looking document does not automatically prove that the opportunity is genuine."
+        },
+
+        {
+          title: "2. Payment Requests",
+          text:
+            "Requests for registration fees, security deposits or payment for an internship offer are major warning signs. Verify the opportunity before making any payment."
+        },
+
+        {
+          title: "3. Fake Domains",
+          text:
+            "Scammers may create domains that look similar to well-known companies. Always compare the domain with the company's official website."
+        },
+
+        {
+          title: "4. Verify Through College",
+          text:
+            "For campus opportunities, contact your Training and Placement Officer or faculty coordinator whenever you are unsure."
+        }
+
+      ],
+
+      example:
+        "Example: A student receives an internship offer claiming to be from a famous company and is asked to pay ₹1,999 for registration. The student should verify the opportunity through the company's official careers page before paying anything.",
+
+      tips: [
+        "Never pay blindly for an internship.",
+        "Verify the company domain.",
+        "Check the company's official careers page.",
+        "Ask your college placement cell.",
+        "Search for scam reports."
+      ]
+    },
+
+
+    "scholarship": {
+
+      introduction:
+        "Scholarship scams trick students by promising financial assistance, grants or educational benefits. Attackers may collect personal information or request processing fees.",
+
+      concepts: [
+
+        {
+          title: "1. Fake Scholarship Websites",
+          text:
+            "Scammers can create websites that look like government or educational portals. Check the official domain carefully before submitting information."
+        },
+
+        {
+          title: "2. Processing Fee Scams",
+          text:
+            "A fake scholarship may ask students to pay a processing fee before receiving money. Treat unexpected payment requests with caution."
+        },
+
+        {
+          title: "3. Verify Government Websites",
+          text:
+            "Government services in India commonly use official government domains. Do not assume that a website is genuine simply because it contains government logos."
+        },
+
+        {
+          title: "4. Protect Personal Information",
+          text:
+            "Do not upload unnecessary documents or share sensitive information with unknown websites."
+        }
+
+      ],
+
+      example:
+        "Example: A website promises a ₹50,000 scholarship and asks for an immediate ₹500 verification payment. Before doing anything, verify the scholarship through the official educational or government portal.",
+
+      tips: [
+        "Verify scholarship announcements.",
+        "Avoid unknown payment requests.",
+        "Check official domains.",
+        "Do not upload unnecessary documents.",
+        "Protect Aadhaar and banking information."
+      ]
+    },
+
+
+    "websites": {
+
+      introduction:
+        "Cyber criminals often create fake websites that look similar to genuine websites. These websites may steal passwords, payment information or personal data.",
+
+      concepts: [
+
+        {
+          title: "1. Lookalike Domains",
+          text:
+            "Attackers may register domains that differ from legitimate domains by one or two characters. Carefully inspect spelling."
+        },
+
+        {
+          title: "2. HTTPS Is Not Enough",
+          text:
+            "HTTPS encrypts communication between your browser and the website, but HTTPS alone does not prove that the website is trustworthy."
+        },
+
+        {
+          title: "3. Clone Login Pages",
+          text:
+            "A fake login page may copy the design of a legitimate service. Always check the domain before entering credentials."
+        },
+
+        {
+          title: "4. URL Hygiene",
+          text:
+            "Before clicking a link, inspect the URL. Be careful with shortened URLs and unfamiliar domains."
+        }
+
+      ],
+
+      example:
+        "Example: A website looks exactly like a popular email service but its domain contains an extra character. Entering your password there could send it directly to an attacker.",
+
+      tips: [
+        "Check the domain carefully.",
+        "Do not trust HTTPS alone.",
+        "Avoid suspicious shortened URLs.",
+        "Use bookmarks for important websites.",
+        "Never enter passwords on unknown websites."
+      ]
+    },
+
+
+    "deepfake": {
+
+      introduction:
+        "Deepfakes use artificial intelligence to create realistic fake videos, images or voices. They can be used for misinformation, impersonation and fraud.",
+
+      concepts: [
+
+        {
+          title: "1. Face Swapping",
+          text:
+            "AI can replace one person's face with another person's face. A realistic-looking video may therefore not represent a real event."
+        },
+
+        {
+          title: "2. Voice Cloning",
+          text:
+            "AI can imitate a person's voice. Attackers may use a cloned voice to pretend to be a friend, teacher or family member."
+        },
+
+        {
+          title: "3. Fake Videos",
+          text:
+            "Deepfake videos can be used to make people appear to say or do things that never happened."
+        },
+
+        {
+          title: "4. Verification",
+          text:
+            "When a video or voice message seems suspicious, verify it through another trusted communication channel."
+        }
+
+      ],
+
+      example:
+        "Example: You receive a voice message that sounds like your friend asking for money urgently. Instead of sending money immediately, call your friend directly using their normal phone number.",
+
+      tips: [
+        "Do not trust audio or video alone.",
+        "Verify unusual requests independently.",
+        "Look for inconsistencies.",
+        "Check reliable news sources.",
+        "Never transfer money based only on a voice message."
+      ]
+    },
+
+
+    "social": {
+
+      introduction:
+        "Social media scams use fake profiles, impersonation, giveaways and emotional manipulation to steal information or money.",
+
+      concepts: [
+
+        {
+          title: "1. Fake Profiles",
+          text:
+            "Attackers can create accounts using another person's name and photograph. Verify the identity before trusting messages from unfamiliar accounts."
+        },
+
+        {
+          title: "2. OTP Scams",
+          text:
+            "Scammers may pretend to be friends, customer support agents or officials and ask for OTPs. Never share authentication codes."
+        },
+
+        {
+          title: "3. Giveaway Scams",
+          text:
+            "Fake giveaways may ask you to pay a small fee or provide personal information before claiming a supposed prize."
+        },
+
+        {
+          title: "4. Privacy Settings",
+          text:
+            "Limit who can view your personal information, contact you or see your posts."
+        }
+
+      ],
+
+      example:
+        "Example: A new Instagram account using your friend's photo sends you a message asking for money. Call your friend using another channel before responding.",
+
+      tips: [
+        "Verify new friend requests.",
+        "Never share OTPs.",
+        "Avoid suspicious giveaways.",
+        "Review privacy settings regularly.",
+        "Think before posting personal information."
+      ]
+    },
+
+
+    "browsing": {
+
+      introduction:
+        "Safe browsing means using the internet carefully while protecting your accounts, devices and personal information from cyber threats.",
+
+      concepts: [
+
+        {
+          title: "1. Strong Passwords",
+          text:
+            "Use long and unique passwords for important accounts. Avoid using the same password across multiple services."
+        },
+
+        {
+          title: "2. Multi-Factor Authentication",
+          text:
+            "MFA adds an additional security layer. Even if someone obtains your password, they may still be unable to access your account."
+        },
+
+        {
+          title: "3. Browser Extensions",
+          text:
+            "Install extensions only from trusted sources. Remove extensions that you no longer use."
+        },
+
+        {
+          title: "4. Public Wi-Fi",
+          text:
+            "Avoid performing sensitive activities on unknown public networks. Attackers may create fake Wi-Fi networks to intercept information."
+        }
+
+      ],
+
+      example:
+        "Example: At a café, you see two Wi-Fi networks with similar names. Instead of connecting randomly, ask the staff for the official network name and password.",
+
+      tips: [
+        "Use unique passwords.",
+        "Enable MFA.",
+        "Keep browsers updated.",
+        "Install trusted extensions only.",
+        "Be careful on public Wi-Fi."
+      ]
+    }
+
+  };
+
+
+  /* =========================================================
+     FIREBASE INITIALIZATION
+  ========================================================= */
+
+  async function waitForFirebase() {
+
+    if (window.firebaseReady) {
+      await window.firebaseReady;
+    }
+
+    let attempts = 0;
+
+    while (
+      (!window.firebaseApp || !window.firebase) &&
+      attempts < 100
+    ) {
+
+      await new Promise(function(resolve) {
+        setTimeout(resolve, 100);
+      });
+
+      attempts++;
+    }
+
+    if (!window.firebase || !window.firebaseApp) {
+      throw new Error("Firebase initialization failed.");
+    }
+
+    return window.firebaseApp;
+  }
+
+
+  /* =========================================================
+     CALCULATE STUDENT PROGRESS
+  ========================================================= */
+
+  function calculateProgress(completedModules) {
+
+    const totalModules =
+      Array.isArray(AppData.learningModules)
+        ? AppData.learningModules.length
+        : 8;
+
+    const completedCount =
+      Array.isArray(completedModules)
+        ? completedModules.length
+        : 0;
+
+    const score =
+      Math.round(
+        (completedCount / totalModules) * 100
+      );
+
+    let level = "Beginner";
+
+    if (score >= 80) {
+      level = "Expert";
+    }
+    else if (score >= 50) {
+      level = "Intermediate";
+    }
+    else if (score >= 25) {
+      level = "Developing";
+    }
+
+    return {
+      count: completedCount,
+      score: score,
+      level: level
+    };
+  }
+
+
+  /* =========================================================
+     LOAD STUDENT
+  ========================================================= */
+
+  async function loadStudent() {
+
+    await waitForFirebase();
+
+    auth = firebase.auth();
+    db = firebase.firestore();
+
+    return new Promise(function(resolve, reject) {
+
+      auth.onAuthStateChanged(async function(user) {
+
+        if (!user) {
+
+          console.warn(
+            "[CyberAware] No authenticated user."
+          );
+
+          window.location.href = "login.html";
+          return;
+        }
+
+        try {
+
+          await user.reload();
+
+          currentUser = auth.currentUser;
+
+          if (!currentUser) {
+            window.location.href = "login.html";
+            return;
+          }
+
+
+          const ref = db
+            .collection("users")
+            .doc(currentUser.uid);
+
+
+          const snap = await ref.get();
+
+
+          if (snap.exists) {
+
+            studentData = snap.data();
+
+          }
+
+          else {
+
+            studentData = {
+
+              uid: currentUser.uid,
+
+              email:
+                currentUser.email || "",
+
+              name:
+                currentUser.displayName ||
+                (currentUser.email || "Student")
+                  .split("@")[0],
+
+              role: "student",
+
+              awarenessScore: 0,
+
+              modulesCompleted: 0,
+
+              quizzesCompleted: 0,
+
+              certificates: 0,
+
+              streak: 0,
+
+              securityLevel: "Beginner",
+
+              completedModules: []
+
+            };
+
+
+            await ref.set(
+              {
+                ...studentData,
+
+                createdAt:
+                  firebase.firestore.FieldValue.serverTimestamp(),
+
+                updatedAt:
+                  firebase.firestore.FieldValue.serverTimestamp()
+
+              },
+              {
+                merge: true
+              }
+            );
+
+          }
+
+
+          /*
+           * IMPORTANT:
+           * completedModules is the source of truth.
+           */
+
+          if (
+            !Array.isArray(
+              studentData.completedModules
+            )
+          ) {
+
+            studentData.completedModules = [];
+
+          }
+
+
+          /*
+           * Remove duplicate module IDs.
+           */
+
+          studentData.completedModules =
+            [...new Set(studentData.completedModules)];
+
+
+          /*
+           * Calculate progress from Firestore.
+           */
+
+          const progress =
+            calculateProgress(
+              studentData.completedModules
+            );
+
+
+          studentData.modulesCompleted =
+            progress.count;
+
+          studentData.awarenessScore =
+            progress.score;
+
+          studentData.securityLevel =
+            progress.level;
+
+
+          /*
+           * Synchronize calculated values
+           * back to Firestore.
+           */
+
+          await ref.set(
+            {
+
+              modulesCompleted:
+                progress.count,
+
+              awarenessScore:
+                progress.score,
+
+              securityLevel:
+                progress.level,
+
+              updatedAt:
+                firebase.firestore.FieldValue.serverTimestamp()
+
+            },
+            {
+              merge: true
+            }
+          );
+
+
+          console.log(
+            "[CyberAware] Student loaded:",
+            studentData
+          );
+
+
+          resolve(true);
+
+        }
+
+        catch(error) {
+
+          console.error(
+            "[CyberAware] Student loading failed:",
+            error
+          );
+
+          reject(error);
+
+        }
+
+      });
+
+    });
+
+  }
+
+
+  /* =========================================================
+     COMPLETE MODULE
+  ========================================================= */
+
+  async function completeModule(module) {
+
+    if (
+      !currentUser ||
+      !db ||
+      !studentData
+    ) {
+
+      App.toast(
+        "Student session is not ready.",
+        "error"
+      );
+
+      return;
+    }
+
+
+    const moduleId = module.id;
+
+
+    let completed =
+      Array.isArray(
+        studentData.completedModules
+      )
+        ? studentData.completedModules
+        : [];
+
+
+    completed =
+      [...new Set(completed)];
+
+
+    /*
+     * Already completed?
+     */
+
+    if (
+      completed.includes(moduleId)
+    ) {
+
+      App.toast(
+        "This module is already completed.",
+        "info"
+      );
+
+      return;
+    }
+
+
+    /*
+     * Add new module locally.
+     */
+
+    const updatedCompleted = [
+      ...completed,
+      moduleId
+    ];
+
+
+    const progress =
+      calculateProgress(
+        updatedCompleted
+      );
+
+
+    try {
+
+      /*
+       * Update Firestore.
+       */
+
+      await db
+        .collection("users")
+        .doc(currentUser.uid)
+        .set(
+          {
+
+            completedModules:
+              updatedCompleted,
+
+            modulesCompleted:
+              progress.count,
+
+            awarenessScore:
+              progress.score,
+
+            securityLevel:
+              progress.level,
+
+            updatedAt:
+              firebase.firestore.FieldValue.serverTimestamp()
+
+          },
+          {
+            merge: true
+          }
+        );
+
+
+      /*
+       * Update browser memory.
+       */
+
+      studentData.completedModules =
+        updatedCompleted;
+
+      studentData.modulesCompleted =
+        progress.count;
+
+      studentData.awarenessScore =
+        progress.score;
+
+      studentData.securityLevel =
+        progress.level;
+
+
+      /*
+       * Update AppData progress.
+       */
+
+      const localModule =
+        AppData.learningModules.find(
+          function(m) {
+            return m.id === moduleId;
+          }
+        );
+
+
+      if (localModule) {
+        localModule.progress = 100;
+      }
+
+
+      /*
+       * Success message.
+       */
+
+      App.toast(
+        `${module.title} completed successfully!`,
+        "success"
+      );
+
+
+      /*
+       * Re-render current page.
+       */
+
+      renderDetail();
+
+
+      console.log(
+        "[CyberAware] Module completed:",
+        moduleId
+      );
+
+      console.log(
+        "[CyberAware] New progress:",
+        progress
+      );
+
+    }
+
+    catch(error) {
+
+      console.error(
+        "[CyberAware] Firestore update failed:",
+        error
+      );
+
+      App.toast(
+        "Could not save module progress. Check Firestore rules.",
+        "error"
+      );
+
+    }
+
+  }
+
+
+  /* =========================================================
+     BUILD LAYOUT
+  ========================================================= */
+
+  function buildLayout() {
+
+    Layout.base = "";
+
+    document.getElementById("app-root").innerHTML = `
+
+      ${Layout.loader()}
+
+      <div class="app-shell">
+
+        ${Layout.studentSidebar()}
+
+        <div class="main-area">
+
+          ${Layout.topbar("Interactive Learning")}
+
+          <main
+            class="page-content"
+            id="page-main"
+          ></main>
+
+        </div>
+
+      </div>
+
+    `;
+
+
+    try {
+      Layout.renderNotifs();
+    }
+    catch(error) {
+      console.warn(error);
+    }
+
+
+    try {
+      App.init();
+    }
+    catch(error) {
+      console.warn(error);
+    }
+
+  }
+
+
+  /* =========================================================
+     RENDER MODULE LIST
+  ========================================================= */
+
+  function renderModules() {
+
+    const main =
+      document.getElementById("page-main");
+
+
+    const completed =
+      Array.isArray(
+        studentData.completedModules
+      )
+        ? studentData.completedModules
+        : [];
+
+
+    const progress =
+      calculateProgress(completed);
+
+
+    /*
+     * Keep student object synchronized.
+     */
+
+    studentData.modulesCompleted =
+      progress.count;
+
+    studentData.awarenessScore =
+      progress.score;
+
+    studentData.securityLevel =
+      progress.level;
+
+
+    main.innerHTML = `
+
+      <div class="page-header animate-in">
+
+        <h1>
+          Learning Hub 📚
+        </h1>
+
+        <p>
+          Learn essential cybersecurity concepts through
+          detailed lessons designed for college students.
+        </p>
+
+      </div>
+
+
+      <!-- STUDENT PROGRESS -->
+
+      <div class="card card-static mb-4">
+
+        <div
+          class="flex justify-between items-center mb-2"
+        >
+
+          <div>
+
+            <strong>
+              Your Learning Progress
+            </strong>
+
+            <div class="text-xs text-muted mt-1">
+
+              ${progress.count}
+              of
+              ${AppData.learningModules.length}
+              modules completed
+
+            </div>
+
+          </div>
+
+
+          <strong>
+            ${progress.score}%
+          </strong>
+
+        </div>
+
+
+        <div class="progress">
+
+          <div
+            class="progress-bar"
+            style="
+              width:${progress.score}%
+            "
+          ></div>
+
+        </div>
+
+
+        <div class="text-xs text-muted mt-2">
+
+          Security Level:
+
+          <strong>
+            ${progress.level}
+          </strong>
+
+        </div>
+
+      </div>
+
+
+      <!-- MODULE CARDS -->
+
+      <div
+        class="grid-3"
+        id="module-grid"
+      >
+
+        ${
+          AppData.learningModules.map(
+            function(m, index) {
+
+              const isCompleted =
+                completed.includes(m.id);
+
+
+              return `
+
+                <article
+                  class="
+                    card
+                    animate-in
+                    delay-${index % 4}
+                  "
+                  data-module="${m.id}"
+                  style="
+                    cursor:pointer;
+                    transition:transform .2s ease;
+                  "
+                >
+
+                  <div
+                    class="
+                      flex
+                      justify-between
+                      items-start
+                      mb-3
+                    "
+                  >
+
+                    <div
+                      style="
+                        width:55px;
+                        height:55px;
+                        border-radius:15px;
+                        background:${m.color}22;
+                        display:grid;
+                        place-items:center;
+                        font-size:1.6rem;
+                      "
+                    >
+                      ${m.icon}
+                    </div>
+
+
+                    <span
+                      class="
+                        badge
+                        ${
+                          isCompleted
+                            ? "badge-success"
+                            : "badge-primary"
+                        }
+                      "
+                    >
+
+                      ${
+                        isCompleted
+                          ? "100%"
+                          : "0%"
+                      }
+
+                    </span>
+
+                  </div>
+
+
+                  <h3
+                    style="
+                      margin-bottom:.5rem;
+                    "
+                  >
+                    ${m.title}
+                  </h3>
+
+
+                  <p
+                    class="
+                      text-sm
+                      text-muted
+                      mb-3
+                    "
+                  >
+                    ${m.desc}
+                  </p>
+
+
+                  <div class="progress mb-3">
+
+                    <div
+                      class="progress-bar"
+                      style="
+                        width:${
+                          isCompleted
+                            ? 100
+                            : 0
+                        }%
+                      "
+                    ></div>
+
+                  </div>
+
+
+                  <div
+                    class="
+                      flex
+                      justify-between
+                      text-xs
+                      text-muted
+                    "
+                  >
+
+                    <span>
+                      ${m.lessons} lessons
+                    </span>
+
+                    <span>
+                      ${m.duration}
+                    </span>
+
+                  </div>
+
+
+                  <button
+                    class="
+                      btn
+                      ${
+                        isCompleted
+                          ? "btn-secondary"
+                          : "btn-primary"
+                      }
+                      w-full
+                      mt-4
+                    "
+                    onclick="
+                      event.stopPropagation();
+                      openModule('${m.id}');
+                    "
+                  >
+
+                    ${
+                      isCompleted
+                        ? "Review Module"
+                        : "Start Learning"
+                    }
+
+                    →
+
+                  </button>
+
+                </article>
+
+              `;
+
+            }
+          ).join("")
+        }
+
+      </div>
+
+    `;
+
+
+    /*
+     * Whole card click.
+     */
+
+    document
+      .querySelectorAll("[data-module]")
+      .forEach(function(card) {
+
+        card.addEventListener(
+          "click",
+          function() {
+
+            openModule(
+              card.dataset.module
+            );
+
+          }
+        );
+
+      });
+
+
+    hideLoader();
+
+  }
+
+
+  /* =========================================================
+     OPEN MODULE
+  ========================================================= */
+
+  window.openModule =
+    function(moduleId) {
+
+      activeModule =
+        moduleId;
+
+      renderDetail();
+
+      window.scrollTo({
+        top:0,
+        behavior:"smooth"
+      });
+
+    };
+
+
+  /* =========================================================
+     RENDER DETAIL
+  ========================================================= */
+
+  function renderDetail() {
+
+    const main =
+      document.getElementById("page-main");
+
+
+    const module =
+      AppData.learningModules.find(
+        function(m) {
+          return m.id === activeModule;
+        }
+      );
+
+
+    const content =
+      moduleContent[activeModule];
+
+
+    if (!module || !content) {
+
+      activeModule = null;
+
+      renderModules();
+
+      return;
+    }
+
+
+    const isCompleted =
+      (
+        studentData.completedModules || []
+      ).includes(module.id);
+
+
+    main.innerHTML = `
+
+      <!-- BACK -->
+
+      <button
+        class="btn btn-ghost mb-4"
+        id="back-button"
+      >
+        ← Back to Learning Hub
+      </button>
+
+
+      <!-- MODULE HEADER -->
+
+      <div
+        class="
+          card
+          card-static
+          animate-in
+          mb-4
+        "
+      >
+
+        <div
+          class="
+            flex
+            items-center
+            gap-4
+          "
+        >
+
+          <div
+            style="
+              width:70px;
+              height:70px;
+              border-radius:18px;
+              background:${module.color}22;
+              display:grid;
+              place-items:center;
+              font-size:2.2rem;
+              flex-shrink:0;
+            "
+          >
+            ${module.icon}
+          </div>
+
+
+          <div style="flex:1">
+
+            <div
+              class="
+                flex
+                justify-between
+                items-start
+                gap-3
+                flex-wrap
+              "
+            >
+
+              <div>
+
+                <h1
+                  style="
+                    font-size:1.8rem;
+                    margin-bottom:.4rem;
+                  "
+                >
+                  ${module.title}
+                </h1>
+
+                <p class="text-muted">
+                  ${module.desc}
+                </p>
+
+              </div>
+
+
+              <span
+                class="
+                  badge
+                  ${
+                    isCompleted
+                      ? "badge-success"
+                      : "badge-primary"
+                  }
+                "
+              >
+
+                ${
+                  isCompleted
+                    ? "Completed"
+                    : "In Progress"
+                }
+
+              </span>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <div class="grid-2">
+
+        <!-- MAIN CONTENT -->
+
+        <div>
+
+          <!-- INTRODUCTION -->
+
+          <div
+            class="
+              card
+              card-static
+              mb-4
+            "
+          >
+
+            <h2
+              style="
+                font-size:1.3rem;
+                margin-bottom:.8rem;
+              "
+            >
+              📖 Introduction
+            </h2>
+
+            <p
+              style="
+                line-height:1.8;
+                color:var(--text-secondary);
+              "
+            >
+              ${content.introduction}
+            </p>
+
+          </div>
+
+
+          <!-- CONCEPTS -->
+
+          <div
+            class="
+              card
+              card-static
+              mb-4
+            "
+          >
+
+            <h2
+              style="
+                font-size:1.3rem;
+                margin-bottom:1rem;
+              "
+            >
+              🎓 What You Will Learn
+            </h2>
+
+
+            <div
+              style="
+                display:flex;
+                flex-direction:column;
+                gap:1.2rem;
+              "
+            >
+
+              ${
+                content.concepts.map(
+                  function(concept) {
+
+                    return `
+
+                      <div
+                        style="
+                          padding:1rem;
+                          border:1px solid var(--border);
+                          border-radius:14px;
+                          background:var(--bg-elevated);
+                        "
+                      >
+
+                        <h3
+                          style="
+                            margin-bottom:.5rem;
+                          "
+                        >
+                          ${concept.title}
+                        </h3>
+
+                        <p
+                          class="text-sm text-muted"
+                          style="
+                            line-height:1.8;
+                          "
+                        >
+                          ${concept.text}
+                        </p>
+
+                      </div>
+
+                    `;
+
+                  }
+                ).join("")
+              }
+
+            </div>
+
+          </div>
+
+
+          <!-- EXAMPLE -->
+
+          <div
+            class="
+              card
+              card-static
+              mb-4
+            "
+            style="
+              border-left:4px solid var(--primary);
+            "
+          >
+
+            <h2
+              style="
+                font-size:1.2rem;
+                margin-bottom:.7rem;
+              "
+            >
+              💡 Real-Life Example
+            </h2>
+
+            <p
+              class="text-sm"
+              style="
+                line-height:1.8;
+              "
+            >
+              ${content.example}
+            </p>
+
+          </div>
+
+
+          <!-- COMPLETE MODULE -->
+
+          <div
+            class="
+              card
+              card-static
+              mb-4
+            "
+          >
+
+            ${
+              isCompleted
+
+                ? `
+
+                  <div
+                    style="
+                      text-align:center;
+                      padding:1rem;
+                    "
+                  >
+
+                    <div
+                      style="
+                        font-size:2.5rem;
+                        margin-bottom:.5rem;
+                      "
+                    >
+                      🎉
+                    </div>
+
+                    <h3>
+                      Module Completed!
+                    </h3>
+
+                    <p
+                      class="
+                        text-sm
+                        text-muted
+                        mt-2
+                      "
+                    >
+                      You have successfully completed
+                      ${module.title}.
+                    </p>
+
+                  </div>
+
+                `
+
+                : `
+
+                  <button
+                    class="
+                      btn
+                      btn-primary
+                      w-full
+                    "
+                    id="complete-module"
+                  >
+                    ✅ Complete Module
+                  </button>
+
+                `
+            }
+
+          </div>
+
+        </div>
+
+
+        <!-- SIDEBAR -->
+
+        <div>
+
+          <!-- SAFETY TIPS -->
+
+          <div
+            class="
+              card
+              card-static
+              mb-4
+            "
+          >
+
+            <h3
+              style="
+                margin-bottom:1rem;
+              "
+            >
+              🛡️ Key Safety Tips
+            </h3>
+
+
+            <div
+              style="
+                display:flex;
+                flex-direction:column;
+                gap:.8rem;
+              "
+            >
+
+              ${
+                content.tips.map(
+                  function(tip) {
+
+                    return `
+
+                      <div
+                        class="
+                          flex
+                          gap-2
+                          items-start
+                        "
+                      >
+
+                        <span>
+                          ✅
+                        </span>
+
+                        <span
+                          class="text-sm"
+                          style="
+                            line-height:1.6;
+                          "
+                        >
+                          ${tip}
+                        </span>
+
+                      </div>
+
+                    `;
+
+                  }
+                ).join("")
+              }
+
+            </div>
+
+          </div>
+
+
+          <!-- PROGRESS -->
+
+          <div
+            class="
+              card
+              card-static
+              mb-4
+            "
+          >
+
+            <h3 class="mb-3">
+              📊 Your Progress
+            </h3>
+
+
+            <div
+              class="
+                flex
+                justify-between
+                text-sm
+                mb-2
+              "
+            >
+
+              <span>
+                ${module.title}
+              </span>
+
+              <strong>
+                ${
+                  isCompleted
+                    ? "100%"
+                    : "0%"
+                }
+              </strong>
+
+            </div>
+
+
+            <div class="progress">
+
+              <div
+                class="progress-bar"
+                style="
+                  width:${
+                    isCompleted
+                      ? 100
+                      : 0
+                  }%
+                "
+              ></div>
+
+            </div>
+
+          </div>
+
+
+          <!-- QUIZ -->
+
+          <div
+            class="
+              card
+              card-static
+            "
+            style="
+              background:var(--gradient-soft);
+            "
+          >
+
+            <h3 class="mb-2">
+              🏆 Test Your Knowledge
+            </h3>
+
+            <p
+              class="
+                text-sm
+                text-muted
+                mb-3
+              "
+            >
+              After learning this topic,
+              test yourself using the quiz section.
+            </p>
+
+            <a
+              href="quiz.html"
+              class="
+                btn
+                btn-secondary
+                w-full
+              "
+            >
+              Go to Quizzes →
+            </a>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    `;
+
+
+    /* =========================================================
+       BACK BUTTON
+    ========================================================= */
+
+    document
+      .getElementById("back-button")
+      .onclick =
+      function() {
+
+        activeModule = null;
+
+        renderModules();
+
+        window.scrollTo({
+          top:0,
+          behavior:"smooth"
+        });
+
+      };
+
+
+    /* =========================================================
+       COMPLETE BUTTON
+    ========================================================= */
+
+    const completeButton =
+      document.getElementById(
+        "complete-module"
+      );
+
+
+    if (completeButton) {
+
+      completeButton.onclick =
+        async function() {
+
+          completeButton.disabled = true;
+
+          completeButton.textContent =
+            "Saving Progress...";
+
+
+          await completeModule(module);
+
+        };
+
+    }
+
+
+    hideLoader();
+
+  }
+
+
+  /* =========================================================
+     HIDE LOADER
+  ========================================================= */
+
+  function hideLoader() {
+
+    const loader =
+      document.getElementById(
+        "page-loader"
+      );
+
+
+    if (loader) {
+
+      setTimeout(
+        function() {
+
+          loader.classList.add(
+            "hidden"
+          );
+
+        },
+        300
+      );
+
+    }
+
+  }
+
+
+  /* =========================================================
+     START
+  ========================================================= */
+
+  async function start() {
+
+    try {
+
+      await loadStudent();
+
+      buildLayout();
+
+      renderModules();
+
+
+      console.log(
+        "[CyberAware] Learning Hub loaded successfully."
+      );
+
+      console.log(
+        "[CyberAware] Modules completed:",
+        studentData.modulesCompleted
+      );
+
+      console.log(
+        "[CyberAware] Awareness score:",
+        studentData.awarenessScore
+      );
+
+    }
+
+    catch(error) {
+
+      console.error(
+        "[CyberAware] Learning Hub error:",
+        error
+      );
+
+
+      document.getElementById(
+        "app-root"
+      ).innerHTML = `
+
+        <div
+          style="
+            min-height:100vh;
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            padding:2rem;
+          "
+        >
+
+          <div
+            class="card"
+            style="
+              max-width:550px;
+              text-align:center;
+            "
+          >
+
+            <div
+              style="
+                font-size:3rem;
+                margin-bottom:1rem;
+              "
+            >
+              ⚠️
+            </div>
+
+            <h2>
+              Unable to Load Learning Hub
+            </h2>
+
+            <p
+              class="text-muted"
+              style="
+                margin-top:.75rem;
+                line-height:1.7;
+              "
+            >
+              There was a problem loading your
+              Firebase student profile.
+              Please refresh the page.
+            </p>
+
+            <button
+              class="btn btn-primary"
+              style="margin-top:1rem"
+              onclick="location.reload()"
+            >
+              Refresh Page
+            </button>
+
+          </div>
+
+        </div>
+
+      `;
+
+    }
+
+  }
+
+
+  /* =========================================================
+     RUN
+  ========================================================= */
+
+  start();
+
+});
+
+</script>
+
+</body>
+</html>

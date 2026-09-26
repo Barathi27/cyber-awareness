@@ -1,0 +1,1324 @@
+<!doctype html>
+
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    ```
+    <title>Community Alert Wall · CyberAware</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link rel="stylesheet" href="../css/styles.css" />
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+    <script src="../js/firebase-config.js"></script>
+    ```
+  </head>
+
+  <body>
+    <div id="app-root"></div>
+
+    ```
+    <!-- Scam Detail Modal -->
+    <div class="modal-overlay" id="detail-modal">
+      <div class="modal" style="width: min(640px, 100%)">
+        <div class="modal-header">
+          <h2 id="modal-title">Scam Detail</h2>
+
+          <button class="modal-close" data-modal-close type="button">✕</button>
+        </div>
+
+        <div id="modal-body"></div>
+      </div>
+    </div>
+
+    <script src="../js/data.js"></script>
+    <script src="../js/app.js"></script>
+    <script src="../js/components.js"></script>
+
+    <script>
+      /* =========================================================
+     CYBERAWARE COMMUNITY ALERT WALL
+     FIRESTORE REAL REPORTS ONLY
+  ========================================================= */
+
+      Layout.base = "";
+
+      document.getElementById("app-root").innerHTML = `
+    ${Layout.loader()}
+
+    <div class="app-shell">
+      ${Layout.studentSidebar()}
+
+      <div class="main-area">
+        ${Layout.topbar("Live Community Alert Wall")}
+
+        <main
+          class="page-content"
+          id="page-main"
+        ></main>
+      </div>
+    </div>
+  `;
+
+      Layout.renderNotifs();
+
+      App.init();
+
+      /* =========================================================
+     STATE
+  ========================================================= */
+
+      let filter = "All";
+      let search = "";
+      let liked = new Set();
+
+      /* ONLY REAL FIRESTORE ALERTS */
+      let firebaseAlerts = [];
+
+      let firebaseLoaded = false;
+
+      /* =========================================================
+     RISK BADGE
+  ========================================================= */
+
+      function riskBadge(risk) {
+        if (risk === "Critical") {
+          return "badge-danger";
+        }
+
+        if (risk === "High") {
+          return "badge-warning";
+        }
+
+        return "badge-info";
+      }
+
+      /* =========================================================
+     ESCAPE HTML
+  ========================================================= */
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
+      /* =========================================================
+     FORMAT FIRESTORE TIME
+  ========================================================= */
+
+      function formatAlertTime(timestamp) {
+        if (!timestamp) {
+          return "Recently";
+        }
+
+        try {
+          let date;
+
+          if (timestamp && typeof timestamp.toDate === "function") {
+            date = timestamp.toDate();
+          } else if (timestamp instanceof Date) {
+            date = timestamp;
+          } else {
+            date = new Date(timestamp);
+          }
+
+          if (Number.isNaN(date.getTime())) {
+            return "Recently";
+          }
+
+          const now = new Date();
+
+          const difference = Math.floor(
+            (now.getTime() - date.getTime()) / 1000,
+          );
+
+          if (difference < 60) {
+            return "Just now";
+          }
+
+          if (difference < 3600) {
+            const minutes = Math.floor(difference / 60);
+
+            return `${minutes} min ago`;
+          }
+
+          if (difference < 86400) {
+            const hours = Math.floor(difference / 3600);
+
+            return `${hours} hr ago`;
+          }
+
+          if (difference < 604800) {
+            const days = Math.floor(difference / 86400);
+
+            return `${days} day${days === 1 ? "" : "s"} ago`;
+          }
+
+          return date.toLocaleDateString();
+        } catch (error) {
+          return "Recently";
+        }
+      }
+
+      /* =========================================================
+     LOAD REAL FIRESTORE ALERTS
+  ========================================================= */
+
+      async function loadFirebaseAlerts() {
+        try {
+          console.info(
+            "[CyberAware] Loading real Firestore Alert Wall reports...",
+          );
+
+          if (typeof firebase === "undefined") {
+            console.error("[CyberAware] Firebase is not available.");
+
+            return;
+          }
+
+          if (typeof firebase.firestore !== "function") {
+            console.error("[CyberAware] Firestore SDK is not loaded.");
+
+            return;
+          }
+
+          const currentUser = firebase.auth().currentUser;
+
+          if (!currentUser) {
+            console.warn("[CyberAware] No logged-in user.");
+
+            return;
+          }
+
+          console.info("[CyberAware] Reading alertWall for:", currentUser.uid);
+
+          const db = firebase.firestore();
+
+          const snapshot = await db.collection("alertWall").get();
+
+          const realAlerts = [];
+
+          snapshot.forEach((doc) => {
+            const data = doc.data() || {};
+
+            realAlerts.push({
+              id: `firebase-${doc.id}`,
+
+              firestoreId: doc.id,
+
+              uid: data.uid || "",
+
+              source: data.source || "community",
+
+              title: data.title || "Reported Scam",
+
+              body: data.body || "No description provided.",
+
+              category: data.category || "Other",
+
+              risk: data.risk || "High",
+
+              riskScore: Number(data.riskScore || 0),
+
+              author: data.author || "CyberAware Student",
+
+              college: data.college || "CyberAware",
+
+              likes: Number(data.likes || 0),
+
+              comments: Number(data.comments || 0),
+
+              verified: data.verified === true,
+
+              trending: data.trending === true,
+
+              aiExplanation: data.aiExplanation || "",
+
+              keywords: Array.isArray(data.keywords) ? data.keywords : [],
+
+              tips: Array.isArray(data.tips) ? data.tips : [],
+
+              createdAt: data.createdAt || null,
+
+              time: formatAlertTime(data.createdAt),
+            });
+          });
+
+          /* Newest reports first */
+          realAlerts.sort((first, second) => {
+            const getTime = (item) => {
+              if (
+                item.createdAt &&
+                typeof item.createdAt.toDate === "function"
+              ) {
+                return item.createdAt.toDate().getTime();
+              }
+
+              return 0;
+            };
+
+            return getTime(second) - getTime(first);
+          });
+
+          firebaseAlerts = realAlerts;
+
+          firebaseLoaded = true;
+
+          console.info(
+            "[CyberAware] REAL reports loaded:",
+            firebaseAlerts.length,
+          );
+
+          render();
+        } catch (error) {
+          console.error("[CyberAware] Failed to load Alert Wall:", error);
+
+          App.toast("Could not load live Alert Wall reports.", "warning");
+        }
+      }
+
+      /* =========================================================
+     REAL POSTS ONLY
+     NO DUMMY DATA
+  ========================================================= */
+
+      function allPosts() {
+        return [...firebaseAlerts];
+      }
+
+      /* =========================================================
+     FILTER
+  ========================================================= */
+
+      function filtered() {
+        const reports = allPosts();
+
+        return reports.filter((post) => {
+          const filterMatches =
+            filter === "All" ||
+            post.category === filter ||
+            (filter === "Trending" && post.trending) ||
+            (filter === "Verified" && post.verified);
+
+          const searchableText = [
+            post.title,
+            post.body,
+            post.category,
+            post.author,
+            post.college,
+          ]
+            .join(" ")
+            .toLowerCase();
+
+          const searchMatches =
+            !search || searchableText.includes(search.toLowerCase());
+
+          return filterMatches && searchMatches;
+        });
+      }
+
+      /* =========================================================
+     RENDER PAGE
+  ========================================================= */
+
+      function render() {
+        const list = filtered();
+
+        const reports = allPosts();
+
+        const trendingPosts = reports.filter((post) => post.trending);
+
+        document.getElementById("page-main").innerHTML = `
+      <div
+        class="
+          page-header
+          animate-in
+          flex
+          justify-between
+          flex-wrap
+          gap-3
+          items-start
+        "
+      >
+        <div>
+          <h1>
+            Community Alert Wall
+          </h1>
+
+          <p>
+            Latest scam reports submitted through CyberAware AI.
+          </p>
+
+          ${
+            firebaseLoaded
+              ? `
+                <p
+                  class="
+                    text-xs
+                    text-muted
+                    mt-1
+                  "
+                >
+                  🟢 Live reports connected to Firebase
+                </p>
+              `
+              : `
+                <p
+                  class="
+                    text-xs
+                    text-muted
+                    mt-1
+                  "
+                >
+                  Loading live reports...
+                </p>
+              `
+          }
+        </div>
+      </div>
+
+      <div
+        class="grid-3"
+        style="
+          margin-bottom:1.5rem;
+          grid-template-columns:2fr 1fr
+        "
+      >
+        <div>
+
+          <!-- SEARCH + FILTERS -->
+          <div
+            class="
+              flex
+              flex-wrap
+              gap-2
+              mb-3
+              items-center
+            "
+          >
+
+            <div
+              class="search-bar"
+              style="
+                flex:1;
+                min-width:200px
+              "
+            >
+              ${App.icons.search}
+
+              <input
+                type="search"
+                id="search-input"
+                placeholder="Search alerts…"
+                value="${escapeHtml(search)}"
+              />
+            </div>
+
+            ${[
+              "All",
+              "Trending",
+              "Verified",
+              "Internship",
+              "Phishing",
+              "Scholarship",
+              "Social",
+            ]
+              .map(
+                (category) => `
+                  <button
+                    class="
+                      btn
+                      btn-sm
+                      ${filter === category ? "btn-primary" : "btn-secondary"}
+                    "
+                    data-filter="${escapeHtml(category)}"
+                    type="button"
+                  >
+                    ${escapeHtml(category)}
+                  </button>
+                `,
+              )
+              .join("")}
+
+          </div>
+
+          <!-- ALERT FEED -->
+          <div
+            class="
+              flex
+              flex-col
+              gap-3
+            "
+            id="feed"
+          >
+
+            ${
+              list.length
+                ? list.map((post) => postCard(post)).join("")
+                : `
+                  <div
+                    class="
+                      empty-state
+                      card
+                      card-static
+                    "
+                  >
+
+                    <div class="empty-icon">
+                      🔍
+                    </div>
+
+                    <h3>
+                      No real alerts found
+                    </h3>
+
+                    <p
+                      class="
+                        text-sm
+                        text-muted
+                      "
+                    >
+                      AI-generated reports will appear here after a suspicious message is analyzed and reported to the Alert Wall.
+                    </p>
+
+                  </div>
+                `
+            }
+
+          </div>
+
+        </div>
+
+        <!-- RIGHT SIDEBAR -->
+        <aside
+          class="
+            flex
+            flex-col
+            gap-4
+          "
+        >
+
+          <!-- TRENDING -->
+          <div
+            class="
+              card
+              card-static
+            "
+          >
+
+            <h3 class="mb-3">
+              🔥 Trending Scams
+            </h3>
+
+            ${
+              trendingPosts.length
+                ? trendingPosts
+                    .map(
+                      (post) => `
+                        <div
+                          style="
+                            padding:0.75rem 0;
+                            border-bottom:1px solid var(--border);
+                            cursor:pointer
+                          "
+                          data-detail="${escapeHtml(post.id)}"
+                        >
+
+                          <strong
+                            class="text-sm"
+                          >
+                            ${escapeHtml(post.title)}
+                          </strong>
+
+                          <div
+                            class="
+                              flex
+                              gap-2
+                              mt-1
+                            "
+                          >
+
+                            <span
+                              class="
+                                badge
+                                ${riskBadge(post.risk)}
+                              "
+                            >
+                              ${escapeHtml(post.risk)}
+                            </span>
+
+                            <span
+                              class="
+                                text-xs
+                                text-muted
+                              "
+                            >
+                              ${Number(post.likes || 0)}
+                              likes
+                            </span>
+
+                          </div>
+
+                        </div>
+                      `,
+                    )
+                    .join("")
+                : `
+                  <p
+                    class="
+                      text-sm
+                      text-muted
+                    "
+                  >
+                    No trending scams yet.
+                  </p>
+                `
+            }
+
+          </div>
+
+          <!-- SAFETY -->
+          <div
+            class="card card-static"
+            style="
+              background:var(--gradient-soft)
+            "
+          >
+
+            <h3 class="mb-2">
+              Stay safe
+            </h3>
+
+            <p
+              class="
+                text-sm
+                text-muted
+              "
+            >
+              Only trust alerts with an Admin Verified badge before resharing widely.
+            </p>
+
+          </div>
+
+        </aside>
+
+      </div>
+    `;
+
+        /* =====================================================
+       SEARCH
+    ===================================================== */
+
+        const searchInput = document.getElementById("search-input");
+
+        if (searchInput) {
+          searchInput.oninput = (event) => {
+            search = event.target.value;
+
+            render();
+
+            const updatedInput = document.getElementById("search-input");
+
+            if (updatedInput) {
+              updatedInput.focus();
+
+              updatedInput.setSelectionRange(search.length, search.length);
+            }
+          };
+        }
+
+        /* =====================================================
+       FILTER BUTTONS
+    ===================================================== */
+
+        document.querySelectorAll("[data-filter]").forEach((button) => {
+          button.onclick = () => {
+            filter = button.dataset.filter;
+
+            render();
+          };
+        });
+
+        /* =====================================================
+       DETAIL BUTTONS
+    ===================================================== */
+
+        document.querySelectorAll("[data-detail]").forEach((element) => {
+          element.onclick = () => {
+            openDetail(element.dataset.detail);
+          };
+        });
+
+        /* =====================================================
+       LIKE BUTTONS
+    ===================================================== */
+
+        document.querySelectorAll("[data-like]").forEach((button) => {
+          button.onclick = (event) => {
+            event.stopPropagation();
+
+            const id = String(button.dataset.like);
+
+            const post = allPosts().find((item) => String(item.id) === id);
+
+            if (!post) {
+              return;
+            }
+
+            if (liked.has(id)) {
+              liked.delete(id);
+
+              post.likes = Math.max(0, Number(post.likes || 0) - 1);
+            } else {
+              liked.add(id);
+
+              post.likes = Number(post.likes || 0) + 1;
+
+              App.toast("Thanks for engaging", "success");
+            }
+
+            render();
+          };
+        });
+
+        /* =====================================================
+       COMMENT BUTTONS
+    ===================================================== */
+
+        document.querySelectorAll("[data-comment]").forEach((button) => {
+          button.onclick = (event) => {
+            event.stopPropagation();
+
+            App.toast(
+              "Comments UI — connect to Firestore comments later.",
+              "info",
+            );
+          };
+        });
+      }
+
+      /* =========================================================
+     POST CARD
+  ========================================================= */
+
+      function postCard(post) {
+        return `
+      <article
+        class="
+          card
+          animate-in
+        "
+        style="
+          cursor:pointer
+        "
+        data-detail="${escapeHtml(post.id)}"
+      >
+
+        <div
+          class="
+            flex
+            justify-between
+            items-start
+            gap-2
+            mb-2
+            flex-wrap
+          "
+        >
+
+          <div
+            class="
+              flex
+              gap-2
+              flex-wrap
+              items-center
+            "
+          >
+
+            <span
+              class="badge badge-primary"
+            >
+              ${escapeHtml(post.category)}
+            </span>
+
+            <span
+              class="
+                badge
+                ${riskBadge(post.risk)}
+              "
+            >
+              ${escapeHtml(post.risk)}
+            </span>
+
+            ${
+              post.verified
+                ? `
+                  <span
+                    class="
+                      badge
+                      badge-verified
+                    "
+                  >
+                    ✓ Admin Verified
+                  </span>
+                `
+                : `
+                  <span
+                    class="
+                      badge
+                      badge-warning
+                    "
+                  >
+                    Pending review
+                  </span>
+                `
+            }
+
+            ${
+              post.trending
+                ? `
+                  <span
+                    class="
+                      badge
+                      badge-danger
+                    "
+                  >
+                    Trending
+                  </span>
+                `
+                : ""
+            }
+
+            <span
+              class="
+                badge
+                badge-info
+              "
+            >
+              🤖 AI Report
+            </span>
+
+          </div>
+
+          <span
+            class="
+              text-xs
+              text-muted
+            "
+          >
+            ${escapeHtml(post.time || "Recently")}
+          </span>
+
+        </div>
+
+        <h3
+          style="
+            margin-bottom:0.5rem;
+            font-size:1.1rem
+          "
+        >
+          ${escapeHtml(post.title)}
+        </h3>
+
+        <p
+          class="
+            text-sm
+            text-muted
+            mb-3
+          "
+        >
+          ${escapeHtml(post.body)}
+        </p>
+
+        ${
+          Number(post.riskScore || 0) > 0
+            ? `
+              <div
+                class="
+                  text-xs
+                  text-muted
+                  mb-3
+                "
+              >
+                AI Risk Score:
+
+                <strong>
+                  ${Number(post.riskScore)}%
+                </strong>
+              </div>
+            `
+            : ""
+        }
+
+        <div
+          class="
+            flex
+            justify-between
+            items-center
+          "
+        >
+
+          <span
+            class="
+              text-xs
+              text-muted
+            "
+          >
+            By
+            ${escapeHtml(post.author)}
+            ·
+            ${escapeHtml(post.college)}
+          </span>
+
+          <div
+            class="
+              flex
+              gap-2
+            "
+          >
+
+            <button
+              class="
+                btn
+                btn-ghost
+                btn-sm
+              "
+              data-like="${escapeHtml(post.id)}"
+              type="button"
+            >
+              ${liked.has(String(post.id)) ? "❤️" : "🤍"}
+
+              ${Number(post.likes || 0)}
+            </button>
+
+            <button
+              class="
+                btn
+                btn-ghost
+                btn-sm
+              "
+              data-comment="${escapeHtml(post.id)}"
+              type="button"
+            >
+              💬
+              ${Number(post.comments || 0)}
+            </button>
+
+          </div>
+
+        </div>
+
+      </article>
+    `;
+      }
+
+      /* =========================================================
+     DETAIL MODAL
+  ========================================================= */
+
+      function openDetail(id) {
+        const post = allPosts().find((item) => String(item.id) === String(id));
+
+        if (!post) {
+          return;
+        }
+
+        document.getElementById("modal-title").textContent = post.title;
+
+        document.getElementById("modal-body").innerHTML = `
+
+      <div
+        class="
+          flex
+          gap-2
+          flex-wrap
+          mb-3
+        "
+      >
+
+        <span
+          class="badge badge-primary"
+        >
+          ${escapeHtml(post.category)}
+        </span>
+
+        <span
+          class="
+            badge
+            ${riskBadge(post.risk)}
+          "
+        >
+          ${escapeHtml(post.risk)}
+        </span>
+
+        ${
+          post.verified
+            ? `
+              <span
+                class="
+                  badge
+                  badge-verified
+                "
+              >
+                ✓ Admin Verified
+              </span>
+            `
+            : `
+              <span
+                class="
+                  badge
+                  badge-warning
+                "
+              >
+                Pending Review
+              </span>
+            `
+        }
+
+        <span
+          class="
+            badge
+            badge-info
+          "
+        >
+          🤖 AI Report
+        </span>
+
+      </div>
+
+      <p
+        class="
+          text-muted
+          mb-3
+        "
+      >
+        ${escapeHtml(post.body)}
+      </p>
+
+      ${
+        post.riskScore > 0
+          ? `
+            <div
+              class="
+                card
+                card-static
+                mb-3
+              "
+            >
+
+              <strong>
+                AI Risk Score:
+              </strong>
+
+              <span>
+                ${Number(post.riskScore)}%
+              </span>
+
+            </div>
+          `
+          : ""
+      }
+
+      ${
+        post.aiExplanation
+          ? `
+            <div
+              class="
+                alert
+                alert-warning
+              "
+            >
+
+              <div>
+
+                <strong>
+                  AI Analysis
+                </strong>
+
+                <p
+                  class="
+                    text-sm
+                    text-muted
+                    mt-1
+                  "
+                >
+                  ${escapeHtml(post.aiExplanation)}
+                </p>
+
+              </div>
+
+            </div>
+          `
+          : ""
+      }
+
+      ${
+        Array.isArray(post.keywords) && post.keywords.length
+          ? `
+            <div class="mt-3">
+
+              <strong
+                class="text-sm"
+              >
+                Detected indicators
+              </strong>
+
+              <div
+                class="
+                  flex
+                  gap-2
+                  flex-wrap
+                  mt-2
+                "
+              >
+
+                ${post.keywords
+                  .map(
+                    (keyword) => `
+                      <span
+                        class="
+                          badge
+                          badge-warning
+                        "
+                      >
+                        ${escapeHtml(keyword)}
+                      </span>
+                    `,
+                  )
+                  .join("")}
+
+              </div>
+
+            </div>
+          `
+          : ""
+      }
+
+      ${
+        Array.isArray(post.tips) && post.tips.length
+          ? `
+            <div class="mt-3">
+
+              <strong
+                class="text-sm"
+              >
+                Safety tips
+              </strong>
+
+              <ul
+                class="
+                  text-sm
+                  text-muted
+                  mt-2
+                "
+              >
+
+                ${post.tips
+                  .map(
+                    (tip) => `
+                      <li>
+                        • ${escapeHtml(tip)}
+                      </li>
+                    `,
+                  )
+                  .join("")}
+
+              </ul>
+
+            </div>
+          `
+          : ""
+      }
+
+      <div
+        class="
+          alert
+          alert-warning
+          mt-3
+        "
+      >
+
+        <div>
+
+          <strong>
+            Safety note
+          </strong>
+
+          <p
+            class="
+              text-sm
+              text-muted
+              mt-1
+            "
+          >
+            Do not engage with the reported contact or link.
+            Forward evidence to your cyber cell if you already shared data.
+          </p>
+
+        </div>
+
+      </div>
+
+      <div
+        class="
+          flex
+          gap-2
+          mt-3
+        "
+      >
+
+        <button
+          class="
+            btn
+            btn-secondary
+            btn-sm
+          "
+          id="detail-like-btn"
+          type="button"
+        >
+          Like (${Number(post.likes || 0)})
+        </button>
+
+        <button
+          class="
+            btn
+            btn-primary
+            btn-sm
+          "
+          id="share-alert-btn"
+          type="button"
+        >
+          Share Alert
+        </button>
+
+      </div>
+
+      <p
+        class="
+          text-xs
+          text-muted
+          mt-3
+        "
+      >
+        Reported by
+        ${escapeHtml(post.author)}
+        ·
+        ${escapeHtml(post.college)}
+        ·
+        ${escapeHtml(post.time || "Recently")}
+      </p>
+    `;
+
+        document.getElementById("detail-modal").classList.add("open");
+
+        document
+          .getElementById("detail-like-btn")
+          ?.addEventListener("click", () => {
+            const key = String(post.id);
+
+            if (!liked.has(key)) {
+              liked.add(key);
+
+              post.likes = Number(post.likes || 0) + 1;
+
+              App.toast("Liked", "success");
+
+              openDetail(id);
+            }
+          });
+
+        document
+          .getElementById("share-alert-btn")
+          ?.addEventListener("click", () => {
+            App.toast("Alert shared with classmates (demo).", "success");
+          });
+      }
+
+      /* =========================================================
+     CLOSE MODAL
+  ========================================================= */
+
+      document.querySelectorAll("[data-modal-close]").forEach((button) => {
+        button.onclick = () => {
+          button.closest(".modal-overlay")?.classList.remove("open");
+        };
+      });
+
+      document.querySelectorAll(".modal-overlay").forEach((overlay) => {
+        overlay.addEventListener("click", (event) => {
+          if (event.target === overlay) {
+            overlay.classList.remove("open");
+          }
+        });
+      });
+
+      /* =========================================================
+     INITIAL EMPTY RENDER
+  ========================================================= */
+
+      render();
+
+      /* =========================================================
+     FIREBASE AUTH
+     WAIT UNTIL USER IS ACTUALLY LOGGED IN
+  ========================================================= */
+
+      function initializeCommunityAlerts() {
+        try {
+          if (typeof firebase === "undefined") {
+            console.error("[CyberAware] Firebase is not available.");
+
+            return;
+          }
+
+          if (typeof firebase.auth !== "function") {
+            console.error("[CyberAware] Firebase Auth is not available.");
+
+            return;
+          }
+
+          firebase.auth().onAuthStateChanged(async (user) => {
+            if (!user) {
+              console.warn("[CyberAware] No logged-in user.");
+
+              firebaseAlerts = [];
+
+              firebaseLoaded = true;
+
+              render();
+
+              return;
+            }
+
+            console.info("[CyberAware] Logged-in user:", user.uid);
+
+            await loadFirebaseAlerts();
+          });
+        } catch (error) {
+          console.error("[CyberAware] Community initialization failed:", error);
+        }
+      }
+
+      initializeCommunityAlerts();
+    </script>
+    ```
+  </body>
+</html>

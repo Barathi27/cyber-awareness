@@ -1,0 +1,1449 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <title>Login · CyberAware</title>
+
+
+  <!-- ========================================= -->
+  <!-- GOOGLE FONTS -->
+  <!-- ========================================= -->
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+
+  <link
+    rel="preconnect"
+    href="https://fonts.gstatic.com"
+    crossorigin
+  />
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap"
+    rel="stylesheet"
+  />
+
+
+  <!-- ========================================= -->
+  <!-- TAILWIND -->
+  <!-- ========================================= -->
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+
+  <!-- ========================================= -->
+  <!-- PROJECT CSS -->
+  <!-- ========================================= -->
+
+  <link
+    rel="stylesheet"
+    href="../css/styles.css"
+  />
+
+
+  <!-- ========================================= -->
+  <!-- FIREBASE SDK -->
+  <!-- ========================================= -->
+
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+</head>
+
+
+<body>
+
+
+  <!-- ========================================= -->
+  <!-- PAGE LOADER -->
+  <!-- ========================================= -->
+
+  <div
+    class="loader-overlay"
+    id="page-loader"
+  >
+
+    <div class="spinner"></div>
+
+    <div
+      class="gradient-text"
+      style="font-weight:800"
+    >
+      CyberAware
+    </div>
+
+  </div>
+
+
+  <!-- ========================================= -->
+  <!-- AUTH PAGE -->
+  <!-- ========================================= -->
+
+  <div class="auth-page">
+
+
+    <!-- ========================================= -->
+    <!-- LEFT SIDE -->
+    <!-- ========================================= -->
+
+    <div class="auth-visual">
+
+      <div
+        style="
+          position:relative;
+          z-index:1
+        "
+      >
+
+        <div
+          class="
+            flex
+            items-center
+            gap-3
+            mb-4
+          "
+        >
+
+          <div
+            class="brand-icon"
+            style="
+              background:
+              rgba(255,255,255,0.2)
+            "
+          >
+            🛡️
+          </div>
+
+          <strong
+            style="font-size:1.25rem"
+          >
+            CyberAware
+          </strong>
+
+        </div>
+
+
+        <h1
+          style="
+            font-size:2.4rem;
+            margin-bottom:1rem
+          "
+        >
+          Secure your campus digital life
+        </h1>
+
+
+        <p
+          style="
+            opacity:0.9;
+            max-width:400px
+          "
+        >
+          Detect fake internships, phishing,
+          scholarship fraud, and viral
+          misinformation with AI-assisted tools.
+        </p>
+
+      </div>
+
+
+      <!-- ===================================== -->
+      <!-- THREAT CARD -->
+      <!-- ===================================== -->
+
+      <div
+        class="card card-static"
+        style="
+          position:relative;
+          z-index:1;
+          background:
+          rgba(255,255,255,0.12);
+          border-color:
+          rgba(255,255,255,0.2);
+          color:#fff;
+        "
+      >
+
+        <div
+          class="text-sm mb-2"
+          style="opacity:0.8"
+        >
+          Live campus threat
+        </div>
+
+        <strong>
+          Fake Microsoft Internship Mail
+        </strong>
+
+        <div
+          class="text-sm mt-1"
+          style="opacity:0.85"
+        >
+          92% scam probability · Blocked by
+          340 students today
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <!-- ========================================= -->
+    <!-- RIGHT SIDE -->
+    <!-- ========================================= -->
+
+    <div class="auth-form-wrap">
+
+      <div class="auth-card animate-in">
+
+
+        <!-- ===================================== -->
+        <!-- TOP BUTTONS -->
+        <!-- ===================================== -->
+
+        <div
+          class="
+            flex
+            justify-between
+            items-center
+            mb-4
+          "
+        >
+
+          <a
+            href="../index.html"
+            class="text-sm text-muted"
+          >
+            ← Back to home
+          </a>
+
+
+          <button
+            class="
+              btn
+              btn-ghost
+              btn-sm
+            "
+            data-theme-toggle
+            type="button"
+          >
+            🌓 Theme
+          </button>
+
+        </div>
+
+
+        <!-- ===================================== -->
+        <!-- HEADING -->
+        <!-- ===================================== -->
+
+        <h2
+          style="margin-bottom:0.35rem"
+        >
+          Welcome back
+        </h2>
+
+        <p
+          class="
+            text-muted
+            text-sm
+            mb-4
+          "
+        >
+          Sign in to continue your awareness journey
+        </p>
+
+
+        <!-- ===================================== -->
+        <!-- STUDENT / ADMIN TABS -->
+        <!-- ===================================== -->
+
+        <div
+          class="auth-tabs"
+          role="tablist"
+        >
+
+          <button
+            class="auth-tab active"
+            data-role="student"
+            type="button"
+          >
+            Student Login
+          </button>
+
+
+          <button
+            class="auth-tab"
+            data-role="admin"
+            type="button"
+          >
+            Admin Login
+          </button>
+
+        </div>
+
+
+        <!-- ===================================== -->
+        <!-- LOGIN FORM -->
+        <!-- ===================================== -->
+
+        <form
+          id="login-form"
+          novalidate
+        >
+
+
+          <!-- EMAIL -->
+
+          <div class="form-group">
+
+            <label
+              class="form-label"
+              for="email"
+            >
+              College Email
+            </label>
+
+
+            <div class="input-icon-wrap">
+
+              <span class="icon">
+                ✉️
+              </span>
+
+
+              <input
+                class="form-input"
+                id="email"
+                type="email"
+                placeholder="you@college.edu"
+                autocomplete="email"
+                required
+              />
+
+            </div>
+
+          </div>
+
+
+          <!-- PASSWORD -->
+
+          <div class="form-group">
+
+            <label
+              class="form-label"
+              for="password"
+            >
+              Password
+            </label>
+
+
+            <div class="input-icon-wrap">
+
+              <span class="icon">
+                🔒
+              </span>
+
+
+              <input
+                class="form-input"
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                autocomplete="current-password"
+                required
+              />
+
+            </div>
+
+          </div>
+
+
+          <!-- ===================================== -->
+          <!-- REMEMBER + FORGOT -->
+          <!-- ===================================== -->
+
+          <div
+            class="
+              flex
+              justify-between
+              items-center
+              mb-4
+            "
+          >
+
+            <label
+              class="
+                flex
+                items-center
+                gap-2
+                text-sm
+                text-muted
+              "
+            >
+
+              <input
+                type="checkbox"
+                checked
+              />
+
+              Remember me
+
+            </label>
+
+
+            <button
+              type="button"
+              class="text-sm"
+              style="
+                color:var(--primary-light);
+                background:none;
+                border:none;
+                cursor:pointer;
+              "
+              id="forgot-btn"
+            >
+              Forgot password?
+            </button>
+
+          </div>
+
+
+          <!-- ===================================== -->
+          <!-- LOGIN BUTTON -->
+          <!-- ===================================== -->
+
+          <button
+            type="submit"
+            class="
+              btn
+              btn-primary
+              w-full
+              btn-lg
+            "
+            id="login-btn"
+          >
+            Sign In as Student
+          </button>
+
+        </form>
+
+
+        <!-- ===================================== -->
+        <!-- FIREBASE INFO -->
+        <!-- ===================================== -->
+
+        <p
+          class="
+            text-center
+            text-sm
+            text-muted
+            mt-4
+          "
+        >
+
+          Firebase Authentication enabled ·
+
+          <code class="font-mono text-xs">
+            Email + Password
+          </code>
+
+        </p>
+
+
+        <!-- ===================================== -->
+        <!-- CREATE ACCOUNT -->
+        <!-- ===================================== -->
+
+        <p
+          class="
+            text-center
+            text-sm
+            text-muted
+            mt-3
+          "
+        >
+
+          Don't have an account?
+
+          <a
+            href="register.html"
+            style="
+              color:var(--primary-light);
+              font-weight:600;
+              text-decoration:none;
+            "
+          >
+            Create Account
+          </a>
+
+        </p>
+
+
+        <!-- ===================================== -->
+        <!-- FORGOT PASSWORD PANEL -->
+        <!-- ===================================== -->
+
+        <div
+          id="forgot-panel"
+          class="hidden mt-4"
+        >
+
+          <div
+            class="card card-static"
+            style="padding:1.25rem"
+          >
+
+            <h3 class="mb-2">
+              Reset password
+            </h3>
+
+
+            <p
+              class="
+                text-sm
+                text-muted
+                mb-3
+              "
+            >
+              Enter your college email.
+              We'll send a password reset link.
+            </p>
+
+
+            <div class="form-group">
+
+              <input
+                class="form-input"
+                type="email"
+                placeholder="you@college.edu"
+                id="reset-email"
+                autocomplete="email"
+              />
+
+            </div>
+
+
+            <div class="flex gap-2">
+
+              <button
+                class="
+                  btn
+                  btn-primary
+                  flex-1
+                "
+                type="button"
+                id="reset-send"
+              >
+                Send Reset Link
+              </button>
+
+
+              <button
+                class="
+                  btn
+                  btn-secondary
+                "
+                type="button"
+                id="forgot-close"
+              >
+                Cancel
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- ========================================= -->
+  <!-- FIREBASE CONFIG -->
+  <!-- ========================================= -->
+
+  <script src="../js/firebase-config.js"></script>
+
+
+  <!-- ========================================= -->
+  <!-- APP JS -->
+  <!-- ========================================= -->
+
+  <script src="../js/app.js"></script>
+
+
+  <!-- ========================================= -->
+  <!-- LOGIN LOGIC -->
+  <!-- ========================================= -->
+
+  <script>
+
+    // =====================================================
+    // CURRENT ROLE
+    // =====================================================
+
+    let role = "student";
+
+
+    // =====================================================
+    // ELEMENTS
+    // =====================================================
+
+    const tabs =
+      document.querySelectorAll(".auth-tab");
+
+    const loginBtn =
+      document.getElementById("login-btn");
+
+    const emailInput =
+      document.getElementById("email");
+
+    const passwordInput =
+      document.getElementById("password");
+
+    const loginForm =
+      document.getElementById("login-form");
+
+
+    // =====================================================
+    // HELPER: RESET LOGIN BUTTON
+    // =====================================================
+
+    function resetLoginButton() {
+
+      loginBtn.disabled = false;
+
+      loginBtn.textContent =
+        role === "admin"
+          ? "Sign In as Admin"
+          : "Sign In as Student";
+
+    }
+
+
+    // =====================================================
+    // STUDENT / ADMIN TAB SWITCHING
+    // =====================================================
+
+    tabs.forEach(
+      function (tab) {
+
+        tab.addEventListener(
+          "click",
+          function () {
+
+            tabs.forEach(
+              function (t) {
+
+                t.classList.remove(
+                  "active"
+                );
+
+              }
+            );
+
+
+            tab.classList.add(
+              "active"
+            );
+
+
+            role =
+              tab.dataset.role;
+
+
+            loginBtn.textContent =
+              role === "admin"
+                ? "Sign In as Admin"
+                : "Sign In as Student";
+
+
+            emailInput.value = "";
+
+            passwordInput.value = "";
+
+          }
+        );
+
+      }
+    );
+
+
+    // =====================================================
+    // ADMIN HASH
+    // =====================================================
+
+    if (
+      location.hash === "#admin"
+    ) {
+
+      const adminTab =
+        document.querySelector(
+          '[data-role="admin"]'
+        );
+
+
+      if (adminTab) {
+
+        adminTab.click();
+
+      }
+
+    }
+
+
+    // =====================================================
+    // LOGIN
+    // =====================================================
+
+    loginForm.addEventListener(
+      "submit",
+      async function (e) {
+
+        e.preventDefault();
+
+
+        const email =
+          emailInput.value
+            .trim()
+            .toLowerCase();
+
+
+        const password =
+          passwordInput.value;
+
+
+        // =================================================
+        // VALIDATION
+        // =================================================
+
+        if (
+          !email ||
+          !password
+        ) {
+
+          App.toast(
+            "Please enter email and password.",
+            "error"
+          );
+
+          return;
+
+        }
+
+
+        loginBtn.disabled = true;
+
+        loginBtn.textContent =
+          "Signing in...";
+
+
+        try {
+
+
+          // ===============================================
+          // FIREBASE CHECK
+          // ===============================================
+
+          if (
+            !window.firebase ||
+            !window.firebaseApp
+          ) {
+
+            throw new Error(
+              "Firebase is not initialized. Check firebase-config.js."
+            );
+
+          }
+
+
+          // ===============================================
+          // AUTH
+          // ===============================================
+
+          const auth =
+            firebase.auth();
+
+
+          const db =
+            firebase.firestore();
+
+
+          console.log(
+            "[CyberAware] Firebase ready."
+          );
+
+
+          // ===============================================
+          // SIGN IN
+          // ===============================================
+
+          const userCredential =
+            await auth.signInWithEmailAndPassword(
+              email,
+              password
+            );
+
+
+          const user =
+            userCredential.user;
+
+
+          console.log(
+            "[CyberAware] Login successful."
+          );
+
+
+          console.log(
+            "UID:",
+            user.uid
+          );
+
+
+          console.log(
+            "Email:",
+            user.email
+          );
+
+
+          // ===============================================
+          // RELOAD USER
+          // ===============================================
+
+          await user.reload();
+
+
+          const currentUser =
+            auth.currentUser;
+
+
+          if (!currentUser) {
+
+            throw new Error(
+              "Unable to retrieve authenticated user."
+            );
+
+          }
+
+
+          // ===============================================
+          // EMAIL VERIFICATION
+          // ===============================================
+
+          if (
+            !currentUser.emailVerified
+          ) {
+
+            console.warn(
+              "[CyberAware] Email not verified."
+            );
+
+
+            try {
+
+              await currentUser
+                .sendEmailVerification();
+
+
+              App.toast(
+                "Verification email sent. Please verify your email first.",
+                "error"
+              );
+
+            }
+
+            catch (verificationError) {
+
+              console.error(
+                "Verification email error:",
+                verificationError
+              );
+
+
+              App.toast(
+                "Your email is not verified. Please verify it before login.",
+                "error"
+              );
+
+            }
+
+
+            await auth.signOut();
+
+            resetLoginButton();
+
+            return;
+
+          }
+
+
+          console.log(
+            "[CyberAware] Email verified."
+          );
+
+
+          // ===============================================
+          // LOAD FIRESTORE USER DOCUMENT
+          // ===============================================
+
+          const userRef =
+            db
+              .collection("users")
+              .doc(currentUser.uid);
+
+
+          const userSnapshot =
+            await userRef.get();
+
+
+          // ===============================================
+          // USER DOCUMENT DOES NOT EXIST
+          // ===============================================
+
+          if (
+            !userSnapshot.exists
+          ) {
+
+            console.error(
+              "[CyberAware] Firestore user document not found."
+            );
+
+
+            await auth.signOut();
+
+
+            App.toast(
+              "Your account profile was not found. Please register again.",
+              "error"
+            );
+
+
+            resetLoginButton();
+
+            return;
+
+          }
+
+
+          // ===============================================
+          // FIRESTORE DATA
+          // ===============================================
+
+          const userData =
+            userSnapshot.data();
+
+
+          const firestoreRole =
+            String(
+              userData.role || "student"
+            )
+              .trim()
+              .toLowerCase();
+
+
+          console.log(
+            "[CyberAware] Firestore role:",
+            firestoreRole
+          );
+
+
+          console.log(
+            "[CyberAware] Selected login role:",
+            role
+          );
+
+
+          // ===============================================
+          // ROLE VALIDATION
+          // ===============================================
+
+          if (
+            role === "admin" &&
+            firestoreRole !== "admin"
+          ) {
+
+            console.warn(
+              "[CyberAware] Admin access denied."
+            );
+
+
+            await auth.signOut();
+
+
+            App.toast(
+              "Access denied. This account is not an administrator.",
+              "error"
+            );
+
+
+            resetLoginButton();
+
+            return;
+
+          }
+
+
+          // ===============================================
+          // STUDENT ROLE VALIDATION
+          // ===============================================
+
+          if (
+            role === "student" &&
+            firestoreRole !== "student"
+          ) {
+
+            console.warn(
+              "[CyberAware] Student access denied."
+            );
+
+
+            await auth.signOut();
+
+
+            App.toast(
+              "Please use the Admin Login tab for this administrator account.",
+              "error"
+            );
+
+
+            resetLoginButton();
+
+            return;
+
+          }
+
+
+          // ===============================================
+          // SYNC FIRESTORE
+          // ===============================================
+
+          await userRef.set(
+            {
+
+              uid:
+                currentUser.uid,
+
+              email:
+                currentUser.email || email,
+
+              emailVerified:
+                currentUser.emailVerified,
+
+              updatedAt:
+                firebase.firestore
+                  .FieldValue
+                  .serverTimestamp()
+
+            },
+            {
+              merge: true
+            }
+          );
+
+
+          console.log(
+            "[CyberAware] User verification synced."
+          );
+
+
+          // ===============================================
+          // SUCCESS
+          // ===============================================
+
+          App.toast(
+            role === "admin"
+              ? "Admin login successful!"
+              : "Student login successful!",
+            "success"
+          );
+
+
+          // ===============================================
+          // REDIRECT
+          // ===============================================
+
+          setTimeout(
+            function () {
+
+              if (
+                role === "admin"
+              ) {
+
+                window.location.href =
+                  "admin.html";
+
+              }
+
+              else {
+
+                window.location.href =
+                  "dashboard.html";
+
+              }
+
+            },
+            700
+          );
+
+        }
+
+
+        // ===================================================
+        // LOGIN ERROR
+        // ===================================================
+
+        catch (error) {
+
+          console.error(
+            "[CyberAware] Firebase Login Error:",
+            error
+          );
+
+
+          let message =
+            "Login failed. Please try again.";
+
+
+          // ===============================================
+          // INVALID CREDENTIALS
+          // ===============================================
+
+          if (
+            error.code ===
+              "auth/invalid-credential" ||
+
+            error.code ===
+              "auth/wrong-password" ||
+
+            error.code ===
+              "auth/user-not-found"
+          ) {
+
+            message =
+              "Invalid email or password.";
+
+          }
+
+
+          // ===============================================
+          // INVALID EMAIL
+          // ===============================================
+
+          else if (
+            error.code ===
+            "auth/invalid-email"
+          ) {
+
+            message =
+              "Please enter a valid email address.";
+
+          }
+
+
+          // ===============================================
+          // TOO MANY REQUESTS
+          // ===============================================
+
+          else if (
+            error.code ===
+            "auth/too-many-requests"
+          ) {
+
+            message =
+              "Too many login attempts. Please try again later.";
+
+          }
+
+
+          // ===============================================
+          // DISABLED USER
+          // ===============================================
+
+          else if (
+            error.code ===
+            "auth/user-disabled"
+          ) {
+
+            message =
+              "This account has been disabled.";
+
+          }
+
+
+          // ===============================================
+          // FIRESTORE PERMISSION
+          // ===============================================
+
+          else if (
+            error.code ===
+            "permission-denied"
+          ) {
+
+            message =
+              "Firestore permission denied. Please check your Firestore security rules.";
+
+          }
+
+
+          // ===============================================
+          // OTHER FIREBASE ERROR
+          // ===============================================
+
+          else if (
+            error.message
+          ) {
+
+            message =
+              error.message;
+
+          }
+
+
+          App.toast(
+            message,
+            "error"
+          );
+
+
+          resetLoginButton();
+
+        }
+
+      }
+    );
+
+
+    // =====================================================
+    // FORGOT PASSWORD OPEN
+    // =====================================================
+
+    document
+      .getElementById("forgot-btn")
+      .addEventListener(
+        "click",
+        function () {
+
+          document
+            .getElementById("forgot-panel")
+            .classList.remove(
+              "hidden"
+            );
+
+        }
+      );
+
+
+    // =====================================================
+    // FORGOT PASSWORD CLOSE
+    // =====================================================
+
+    document
+      .getElementById("forgot-close")
+      .addEventListener(
+        "click",
+        function () {
+
+          document
+            .getElementById("forgot-panel")
+            .classList.add(
+              "hidden"
+            );
+
+        }
+      );
+
+
+    // =====================================================
+    // PASSWORD RESET
+    // =====================================================
+
+    document
+      .getElementById("reset-send")
+      .addEventListener(
+        "click",
+        async function () {
+
+          const resetEmail =
+            document
+              .getElementById("reset-email")
+              .value
+              .trim();
+
+
+          if (!resetEmail) {
+
+            App.toast(
+              "Please enter your email.",
+              "error"
+            );
+
+            return;
+
+          }
+
+
+          try {
+
+
+            // =============================================
+            // FIREBASE CHECK
+            // =============================================
+
+            if (
+              !window.firebase ||
+              !window.firebaseApp
+            ) {
+
+              throw new Error(
+                "Firebase is not initialized."
+              );
+
+            }
+
+
+            const auth =
+              firebase.auth();
+
+
+            // =============================================
+            // SEND RESET EMAIL
+            // =============================================
+
+            await auth
+              .sendPasswordResetEmail(
+                resetEmail
+              );
+
+
+            App.toast(
+              "Password reset link sent. Check your email.",
+              "success"
+            );
+
+
+            document
+              .getElementById("forgot-panel")
+              .classList.add(
+                "hidden"
+              );
+
+          }
+
+
+          catch (error) {
+
+            console.error(
+              "[CyberAware] Password reset error:",
+              error
+            );
+
+
+            let message =
+              "Unable to send reset email.";
+
+
+            if (
+              error.code ===
+              "auth/invalid-email"
+            ) {
+
+              message =
+                "Please enter a valid email address.";
+
+            }
+
+
+            else if (
+              error.code ===
+              "auth/user-not-found"
+            ) {
+
+              message =
+                "No account found with this email.";
+
+            }
+
+
+            else if (
+              error.code ===
+              "auth/too-many-requests"
+            ) {
+
+              message =
+                "Too many requests. Please try again later.";
+
+            }
+
+
+            else if (
+              error.message
+            ) {
+
+              message =
+                error.message;
+
+            }
+
+
+            App.toast(
+              message,
+              "error"
+            );
+
+          }
+
+        }
+      );
+
+
+    // =====================================================
+    // HIDE LOADER
+    // =====================================================
+
+    window.addEventListener(
+      "load",
+      function () {
+
+        const loader =
+          document.getElementById(
+            "page-loader"
+          );
+
+
+        if (loader) {
+
+          setTimeout(
+            function () {
+
+              loader.classList.add(
+                "hidden"
+              );
+
+            },
+            300
+          );
+
+        }
+
+      }
+    );
+
+  </script>
+
+</body>
+
+</html>

@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>CyberAware</title>
+
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        width: 340px;
+        margin: 0;
+        padding: 18px;
+
+        font-family: Arial, sans-serif;
+
+        background: linear-gradient(145deg, #020617, #0f172a);
+
+        color: white;
+      }
+
+      /* =================================
+         HEADER
+      ================================= */
+
+      .header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .logo {
+        width: 42px;
+        height: 42px;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        background: #1d4ed8;
+
+        border-radius: 12px;
+
+        font-size: 22px;
+
+        box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35);
+      }
+
+      h2 {
+        margin: 0;
+
+        font-size: 21px;
+        font-weight: 700;
+      }
+
+      .subtitle {
+        color: #94a3b8;
+
+        margin-top: 3px;
+
+        font-size: 12px;
+      }
+
+      /* =================================
+         PROTECTION CARD
+      ================================= */
+
+      .protection-box {
+        margin-top: 18px;
+
+        padding: 14px;
+
+        background: rgba(30, 41, 59, 0.9);
+
+        border: 1px solid #334155;
+
+        border-radius: 14px;
+
+        display: flex;
+
+        align-items: center;
+
+        justify-content: space-between;
+      }
+
+      .protection-title {
+        font-size: 14px;
+
+        font-weight: 700;
+      }
+
+      .protection-status {
+        font-size: 12px;
+
+        color: #22c55e;
+
+        margin-top: 4px;
+      }
+
+      /* =================================
+         TOGGLE
+      ================================= */
+
+      .switch {
+        position: relative;
+
+        width: 48px;
+        height: 26px;
+      }
+
+      .switch input {
+        opacity: 0;
+
+        width: 0;
+        height: 0;
+      }
+
+      .slider {
+        position: absolute;
+
+        cursor: pointer;
+
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+
+        background: #475569;
+
+        border-radius: 30px;
+
+        transition: 0.3s;
+      }
+
+      .slider:before {
+        content: "";
+
+        position: absolute;
+
+        height: 20px;
+        width: 20px;
+
+        left: 3px;
+        bottom: 3px;
+
+        background: white;
+
+        border-radius: 50%;
+
+        transition: 0.3s;
+      }
+
+      input:checked + .slider {
+        background: #22c55e;
+      }
+
+      input:checked + .slider:before {
+        transform: translateX(22px);
+      }
+
+      /* =================================
+         CURRENT WEBSITE
+      ================================= */
+
+      .section-title {
+        margin-top: 18px;
+
+        margin-bottom: 8px;
+
+        font-size: 12px;
+
+        color: #94a3b8;
+
+        text-transform: uppercase;
+
+        letter-spacing: 0.8px;
+
+        font-weight: 700;
+      }
+
+      /* =================================
+         RESULT
+      ================================= */
+
+      #status {
+        padding: 16px;
+
+        border-radius: 14px;
+
+        background: #14532d;
+
+        border: 1px solid rgba(255, 255, 255, 0.08);
+
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+      }
+
+      .label {
+        font-size: 17px;
+
+        font-weight: 700;
+
+        margin-bottom: 8px;
+      }
+
+      .score {
+        font-size: 15px;
+
+        font-weight: 600;
+
+        margin-bottom: 10px;
+      }
+
+      .reasons {
+        font-size: 13px;
+
+        line-height: 1.6;
+
+        color: #e2e8f0;
+      }
+
+      /* =================================
+         RESULT COLORS
+      ================================= */
+
+      .safe {
+        background: #14532d !important;
+
+        border-color: #22c55e !important;
+      }
+
+      .suspicious {
+        background: #78350f !important;
+
+        border-color: #f59e0b !important;
+      }
+
+      .dangerous {
+        background: #7f1d1d !important;
+
+        border-color: #ef4444 !important;
+      }
+
+      /* =================================
+         SCAN BUTTON
+      ================================= */
+
+      .scan-button {
+        width: 100%;
+
+        margin-top: 14px;
+
+        padding: 11px 14px;
+
+        border: none;
+
+        border-radius: 10px;
+
+        background: #2563eb;
+
+        color: white;
+
+        font-size: 14px;
+
+        font-weight: 700;
+
+        cursor: pointer;
+
+        transition: 0.2s;
+      }
+
+      .scan-button:hover {
+        background: #1d4ed8;
+      }
+
+      .scan-button:active {
+        transform: scale(0.98);
+      }
+
+      /* =================================
+         FOOTER
+      ================================= */
+
+      .footer {
+        margin-top: 14px;
+
+        text-align: center;
+
+        font-size: 11px;
+
+        color: #64748b;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- =================================
+         HEADER
+    ================================= -->
+
+    <div class="header">
+      <div class="logo">🛡️</div>
+
+      <div>
+        <h2>CyberAware</h2>
+
+        <div class="subtitle">Browser Protection</div>
+      </div>
+    </div>
+
+    <!-- =================================
+         PROTECTION ON/OFF
+    ================================= -->
+
+    <div class="protection-box">
+      <div>
+        <div class="protection-title">Protection</div>
+
+        <div id="protectionStatus" class="protection-status">Protection ON</div>
+      </div>
+
+      <label class="switch">
+        <input type="checkbox" id="protectionToggle" checked />
+
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <!-- =================================
+         CURRENT WEBSITE
+    ================================= -->
+
+    <div class="section-title">Current Website</div>
+
+    <!-- =================================
+         WEBSITE RESULT
+    ================================= -->
+
+    <div id="status">Checking current website...</div>
+
+    <!-- =================================
+         FOOTER
+    ================================= -->
+
+    <div class="footer">CyberAware • Safe browsing protection</div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

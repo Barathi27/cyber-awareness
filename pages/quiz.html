@@ -1,0 +1,3216 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>Quizzes · CyberAware</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link rel="stylesheet" href="../css/styles.css" />
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+    <style>
+      /* =====================================================
+         QUIZ OPTIONS
+      ===================================================== */
+
+      .option-card {
+        display: flex;
+        gap: 0.85rem;
+        align-items: flex-start;
+        padding: 1rem 1.15rem;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: var(--bg-elevated);
+        cursor: pointer;
+        margin-bottom: 0.65rem;
+        transition:
+          border-color 0.2s ease,
+          background 0.2s ease,
+          transform 0.15s ease,
+          box-shadow 0.2s ease;
+      }
+
+      .option-card:hover {
+        border-color: var(--primary);
+        transform: translateY(-1px);
+      }
+
+      .option-card.selected {
+        border-color: var(--primary);
+        background: var(--gradient-soft);
+        box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.12);
+      }
+
+      .option-card.correct {
+        border-color: var(--success);
+        background: rgba(16, 185, 129, 0.12);
+      }
+
+      .option-card.wrong {
+        border-color: var(--danger);
+        background: rgba(239, 68, 68, 0.12);
+      }
+
+      .option-card.disabled {
+        cursor: default;
+      }
+
+      /* =====================================================
+         TOPIC CARDS
+      ===================================================== */
+
+      .quiz-topic-card {
+        cursor: pointer;
+        transition:
+          transform 0.2s ease,
+          border-color 0.2s ease,
+          box-shadow 0.2s ease;
+      }
+
+      .quiz-topic-card:hover {
+        transform: translateY(-3px);
+        border-color: var(--primary);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+      }
+
+      .quiz-topic-icon {
+        width: 52px;
+        height: 52px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 14px;
+        background: var(--gradient-soft);
+        font-size: 1.7rem;
+        margin-bottom: 1rem;
+      }
+
+      .topic-progress {
+        height: 7px;
+        border-radius: 999px;
+        background: var(--bg-soft);
+        overflow: hidden;
+        margin-top: 0.8rem;
+      }
+
+      .topic-progress-bar {
+        height: 100%;
+        border-radius: 999px;
+        background: var(--primary);
+        transition: width 0.3s ease;
+      }
+
+      .topic-progress-bar.passed {
+        background: var(--success);
+      }
+
+      /* =====================================================
+         BREADCRUMB
+      ===================================================== */
+
+      .quiz-breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+      }
+
+      .quiz-back-btn {
+        cursor: pointer;
+      }
+
+      /* =====================================================
+         BADGES
+      ===================================================== */
+
+      .topic-badge-box {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 1rem;
+        background: var(--bg-elevated);
+        transition:
+          transform 0.2s ease,
+          border-color 0.2s ease;
+      }
+
+      .topic-badge-box:hover {
+        transform: translateY(-2px);
+      }
+
+      .topic-badge-box.earned {
+        border-color: rgba(16, 185, 129, 0.55);
+        background: rgba(16, 185, 129, 0.07);
+      }
+
+      .locked {
+        opacity: 0.65;
+      }
+
+      .certificate-status {
+        font-size: 0.78rem;
+        font-weight: 700;
+      }
+
+      /* =====================================================
+         LEADERBOARD
+      ===================================================== */
+
+      .leaderboard-loading {
+        padding: 2rem;
+        text-align: center;
+        color: var(--text-muted);
+      }
+
+      .leaderboard-empty {
+        padding: 2rem;
+        text-align: center;
+        color: var(--text-muted);
+      }
+
+      /* =====================================================
+         CERTIFICATE PREVIEW
+      ===================================================== */
+
+      .certificate-wrapper {
+        margin-top: 1.5rem;
+      }
+
+      .certificate-card {
+        position: relative;
+        overflow: hidden;
+        min-height: 430px;
+        padding: 2.5rem;
+        border-radius: 22px;
+
+        background:
+          radial-gradient(
+            circle at top left,
+            rgba(129, 140, 248, 0.25),
+            transparent 35%
+          ),
+          radial-gradient(
+            circle at bottom right,
+            rgba(45, 212, 191, 0.18),
+            transparent 35%
+          ),
+          linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #172554 100%);
+
+        border: 2px solid rgba(165, 180, 252, 0.55);
+
+        box-shadow:
+          0 20px 60px rgba(0, 0, 0, 0.25),
+          inset 0 0 0 7px rgba(255, 255, 255, 0.035);
+
+        color: white;
+        text-align: center;
+      }
+
+      .certificate-card::before {
+        content: "";
+        position: absolute;
+        inset: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 15px;
+        pointer-events: none;
+      }
+
+      .certificate-card::after {
+        content: "";
+        position: absolute;
+        width: 180px;
+        height: 180px;
+        border-radius: 50%;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        top: -80px;
+        right: -70px;
+        pointer-events: none;
+      }
+
+      .certificate-inner {
+        position: relative;
+        z-index: 2;
+      }
+
+      .certificate-logo {
+        width: 58px;
+        height: 58px;
+        margin: 0 auto 0.9rem;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.7rem;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+      }
+
+      .certificate-small-title {
+        font-size: 0.72rem;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        opacity: 0.72;
+      }
+
+      .certificate-main-title {
+        margin-top: 0.65rem;
+        font-family: "Plus Jakarta Sans", sans-serif;
+        font-size: 2rem;
+        font-weight: 800;
+      }
+
+      .certificate-subtitle {
+        margin-top: 0.45rem;
+        font-size: 0.88rem;
+        opacity: 0.72;
+      }
+
+      .certificate-divider {
+        width: 110px;
+        height: 2px;
+        margin: 1.2rem auto;
+        background: rgba(255, 255, 255, 0.35);
+      }
+
+      .certificate-awarded {
+        font-size: 0.82rem;
+        opacity: 0.72;
+      }
+
+      .certificate-name {
+        margin-top: 0.35rem;
+        font-family: "Plus Jakarta Sans", sans-serif;
+        font-size: 1.75rem;
+        font-weight: 800;
+      }
+
+      .certificate-topic {
+        margin-top: 0.5rem;
+        font-size: 1rem;
+        font-weight: 700;
+      }
+
+      .certificate-score {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 1rem;
+        padding: 0.42rem 0.85rem;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        font-size: 0.78rem;
+        font-weight: 700;
+      }
+
+      .certificate-footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-top: 2rem;
+        padding: 0 1rem;
+        font-size: 0.68rem;
+        opacity: 0.55;
+      }
+
+      .certificate-locked {
+        background: linear-gradient(135deg, #111827, #1f2937);
+        border-color: rgba(148, 163, 184, 0.25);
+      }
+
+      .certificate-lock-icon {
+        font-size: 3rem;
+        margin-bottom: 0.75rem;
+      }
+
+      /* =====================================================
+         CERTIFICATE BUTTON
+      ===================================================== */
+
+      .certificate-download-btn {
+        margin-top: 1rem;
+        width: 100%;
+      }
+
+      /* =====================================================
+         MOBILE
+      ===================================================== */
+
+      @media (max-width: 640px) {
+        .certificate-card {
+          padding: 2rem 1.2rem;
+          min-height: 400px;
+        }
+
+        .certificate-main-title {
+          font-size: 1.55rem;
+        }
+
+        .certificate-name {
+          font-size: 1.4rem;
+        }
+
+        .certificate-footer {
+          padding: 0;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="app-root"></div>
+
+    <!-- Project files -->
+    <script src="../js/data.js"></script>
+    <script src="../js/app.js"></script>
+    <script src="../js/components.js"></script>
+
+    <!-- Firebase configuration -->
+    <script src="../js/firebase-config.js"></script>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        console.log("[CyberAware] Quiz page starting...");
+
+        /* =====================================================
+           FIREBASE VARIABLES
+        ===================================================== */
+
+        let auth = null;
+        let db = null;
+        let currentUser = null;
+        let studentData = null;
+
+        /* =====================================================
+           QUIZ VARIABLES
+        ===================================================== */
+
+        let selectedQuizId = null;
+
+        let qs = [];
+
+        let mode = "hub";
+
+        let idx = 0;
+
+        let answers = {};
+
+        let revealed = false;
+
+        let seconds = 8 * 60;
+
+        let timerId = null;
+
+        /*
+          Topic progress is loaded from:
+
+          users/{uid}/quizAttempts
+
+          Example:
+
+          topicProgress["fake-news"] = {
+            bestScore: 90,
+            certificate: true
+          }
+        */
+        let topicProgress = {};
+
+        /* =====================================================
+           FIREBASE WAIT
+        ===================================================== */
+
+        async function waitForFirebase() {
+          if (window.firebaseReady) {
+            await window.firebaseReady;
+          }
+
+          let attempts = 0;
+
+          while ((!window.firebaseApp || !window.firebase) && attempts < 100) {
+            await new Promise(function (resolve) {
+              setTimeout(resolve, 100);
+            });
+
+            attempts++;
+          }
+
+          if (!window.firebase || !window.firebaseApp) {
+            throw new Error("Firebase initialization failed.");
+          }
+
+          return window.firebaseApp;
+        }
+
+        /* =====================================================
+           GET REQUIRED PASS PERCENTAGE
+        ===================================================== */
+
+        function getRequiredPercentage(quiz) {
+          if (!quiz) {
+            return 80;
+          }
+
+          const value = Number(
+            quiz.passPercentage ||
+              quiz.requiredPercentage ||
+              quiz.passingPercentage ||
+              80,
+          );
+
+          if (!Number.isFinite(value)) {
+            return 80;
+          }
+
+          return Math.min(100, Math.max(1, value));
+        }
+
+        /* =====================================================
+           LOAD STUDENT
+        ===================================================== */
+
+        async function loadStudent() {
+          await waitForFirebase();
+
+          auth = firebase.auth();
+
+          db = firebase.firestore();
+
+          return new Promise(function (resolve, reject) {
+            auth.onAuthStateChanged(async function (user) {
+              if (!user) {
+                console.warn("[CyberAware] No authenticated user.");
+
+                window.location.href = "login.html";
+
+                return;
+              }
+
+              try {
+                await user.reload();
+
+                currentUser = auth.currentUser;
+
+                if (!currentUser) {
+                  window.location.href = "login.html";
+
+                  return;
+                }
+
+                const ref = db.collection("users").doc(currentUser.uid);
+
+                const snap = await ref.get();
+
+                if (snap.exists) {
+                  studentData = snap.data();
+                } else {
+                  studentData = {
+                    uid: currentUser.uid,
+
+                    email: currentUser.email || "",
+
+                    name:
+                      currentUser.displayName ||
+                      (currentUser.email || "Student").split("@")[0],
+
+                    role: "student",
+
+                    awarenessScore: 0,
+
+                    modulesCompleted: 0,
+
+                    quizzesCompleted: 0,
+
+                    certificates: 0,
+
+                    streak: 0,
+
+                    securityLevel: "Beginner",
+
+                    completedModules: [],
+
+                    quizAttempts: 0,
+
+                    bestQuizScore: 0,
+                  };
+
+                  await ref.set(
+                    {
+                      ...studentData,
+
+                      createdAt:
+                        firebase.firestore.FieldValue.serverTimestamp(),
+
+                      updatedAt:
+                        firebase.firestore.FieldValue.serverTimestamp(),
+                    },
+                    {
+                      merge: true,
+                    },
+                  );
+                }
+
+                if (!Array.isArray(studentData.completedModules)) {
+                  studentData.completedModules = [];
+                }
+
+                console.log("[CyberAware] Student loaded:", studentData);
+
+                await loadTopicProgress();
+
+                resolve(true);
+              } catch (error) {
+                console.error("[CyberAware] Student loading failed:", error);
+
+                reject(error);
+              }
+            });
+          });
+        }
+
+        /* =====================================================
+           LOAD TOPIC PROGRESS FROM FIREBASE
+        ===================================================== */
+
+        async function loadTopicProgress() {
+          topicProgress = {};
+
+          if (!currentUser || !db) {
+            return;
+          }
+
+          try {
+            const snapshot = await db
+              .collection("users")
+              .doc(currentUser.uid)
+              .collection("quizAttempts")
+              .get();
+
+            snapshot.forEach(function (doc) {
+              const attempt = doc.data();
+
+              const quizId = attempt.quizId;
+
+              if (!quizId) {
+                return;
+              }
+
+              const score = Number(attempt.score || 0);
+
+              const certificateEarned = attempt.certificateEarned === true;
+
+              if (!topicProgress[quizId]) {
+                topicProgress[quizId] = {
+                  bestScore: 0,
+                  certificate: false,
+                };
+              }
+
+              if (score > topicProgress[quizId].bestScore) {
+                topicProgress[quizId].bestScore = score;
+              }
+
+              if (certificateEarned) {
+                topicProgress[quizId].certificate = true;
+              }
+            });
+
+            /*
+              Recalculate certificate state from
+              the required percentage.
+
+              This makes the UI reliable even if
+              certificateEarned was not previously
+              stored correctly.
+            */
+
+            Object.keys(topicProgress).forEach(function (quizId) {
+              const quiz = AppData.quizzes[quizId];
+
+              if (!quiz) {
+                return;
+              }
+
+              const required = getRequiredPercentage(quiz);
+
+              if (topicProgress[quizId].bestScore >= required) {
+                topicProgress[quizId].certificate = true;
+              }
+            });
+
+            console.log("[CyberAware] Topic progress:", topicProgress);
+          } catch (error) {
+            console.warn("[CyberAware] Topic progress loading failed:", error);
+          }
+        }
+
+        /* =====================================================
+           BUILD LAYOUT
+        ===================================================== */
+
+        function buildLayout() {
+          Layout.base = "";
+
+          document.getElementById("app-root").innerHTML = `
+
+            ${Layout.loader()}
+
+            <div class="app-shell">
+
+              ${Layout.studentSidebar()}
+
+              <div class="main-area">
+
+                ${Layout.topbar("Quizzes & Achievements")}
+
+                <main
+                  class="page-content"
+                  id="page-main"
+                ></main>
+
+              </div>
+
+            </div>
+
+          `;
+
+          try {
+            Layout.renderNotifs();
+          } catch (error) {
+            console.warn(error);
+          }
+
+          try {
+            App.init();
+          } catch (error) {
+            console.warn(error);
+          }
+        }
+
+        /* =====================================================
+           RENDER
+        ===================================================== */
+
+        function render() {
+          const main = document.getElementById("page-main");
+
+          if (!main) {
+            return;
+          }
+
+          if (mode === "hub") {
+            renderHub(main);
+          } else if (mode === "playing") {
+            renderPlay(main);
+          } else {
+            renderResult(main);
+          }
+        }
+
+        /* =====================================================
+           GET TOPIC SCORE
+        ===================================================== */
+
+        function getTopicScore(quizId) {
+          if (
+            topicProgress[quizId] &&
+            typeof topicProgress[quizId].bestScore === "number"
+          ) {
+            return topicProgress[quizId].bestScore;
+          }
+
+          return 0;
+        }
+
+        /* =====================================================
+           TOPIC CERTIFICATE
+        ===================================================== */
+
+        function hasTopicCertificate(quizId) {
+          const quiz = AppData.quizzes[quizId];
+
+          if (!quiz) {
+            return false;
+          }
+
+          const score = getTopicScore(quizId);
+
+          const required = getRequiredPercentage(quiz);
+
+          return score >= required;
+        }
+
+        /* =====================================================
+           START SELECTED QUIZ
+        ===================================================== */
+
+        function openQuiz(quizId) {
+          const quiz = AppData.quizzes[quizId];
+
+          if (!quiz) {
+            App.toast("Quiz could not be found.", "error");
+
+            return;
+          }
+
+          if (!Array.isArray(quiz.questions) || quiz.questions.length === 0) {
+            App.toast("This quiz has no questions yet.", "warning");
+
+            return;
+          }
+
+          selectedQuizId = quizId;
+
+          qs = quiz.questions;
+
+          idx = 0;
+
+          answers = {};
+
+          revealed = false;
+
+          seconds = 8 * 60;
+
+          mode = "playing";
+
+          clearInterval(timerId);
+
+          timerId = setInterval(function () {
+            seconds--;
+
+            const el = document.getElementById("timer");
+
+            if (el) {
+              el.textContent = formatTime(seconds);
+            }
+
+            if (seconds <= 0) {
+              clearInterval(timerId);
+
+              finish();
+            }
+          }, 1000);
+
+          render();
+        }
+
+        /* =====================================================
+           LOAD LEADERBOARD
+        ===================================================== */
+
+        async function loadLeaderboard() {
+          const container = document.getElementById("leaderboard-body");
+
+          if (!container) {
+            return;
+          }
+
+          container.innerHTML = `
+
+            <tr>
+              <td
+                colspan="4"
+                class="leaderboard-loading"
+              >
+                Loading leaderboard...
+              </td>
+            </tr>
+
+          `;
+
+          try {
+            const snapshot = await db.collection("leaderboard").get();
+
+            const leaderboard = [];
+
+            snapshot.forEach(function (doc) {
+              const data = doc.data();
+
+              leaderboard.push({
+                uid: doc.id,
+
+                name: data.name || "Student",
+
+                bestQuizScore: Number(data.bestQuizScore || 0),
+
+                awarenessScore: Number(data.awarenessScore || 0),
+
+                certificates: Number(data.certificates || 0),
+
+                quizzesCompleted: Number(data.quizzesCompleted || 0),
+              });
+            });
+
+            leaderboard.sort(function (a, b) {
+              if (b.bestQuizScore !== a.bestQuizScore) {
+                return b.bestQuizScore - a.bestQuizScore;
+              }
+
+              if (b.awarenessScore !== a.awarenessScore) {
+                return b.awarenessScore - a.awarenessScore;
+              }
+
+              if (b.certificates !== a.certificates) {
+                return b.certificates - a.certificates;
+              }
+
+              return b.quizzesCompleted - a.quizzesCompleted;
+            });
+
+            if (leaderboard.length === 0) {
+              container.innerHTML = `
+
+                <tr>
+                  <td
+                    colspan="4"
+                    class="leaderboard-empty"
+                  >
+                    No leaderboard entries yet.
+                  </td>
+                </tr>
+
+              `;
+
+              return;
+            }
+
+            container.innerHTML = leaderboard
+              .map(function (student, index) {
+                const rank = index + 1;
+
+                const isCurrentUser =
+                  currentUser && student.uid === currentUser.uid;
+
+                return `
+
+                      <tr
+                        ${
+                          isCurrentUser
+                            ? 'style="background:var(--gradient-soft)"'
+                            : ""
+                        }
+                      >
+
+                        <td>
+                          <strong>
+                            ${
+                              rank === 1
+                                ? "🥇"
+                                : rank === 2
+                                  ? "🥈"
+                                  : rank === 3
+                                    ? "🥉"
+                                    : "#" + rank
+                            }
+                          </strong>
+                        </td>
+
+                        <td>
+
+                          <strong>
+                            ${student.name}
+                          </strong>
+
+                          ${
+                            isCurrentUser
+                              ? `
+                                <span
+                                  class="
+                                    badge
+                                    badge-primary
+                                  "
+                                  style="
+                                    margin-left:.35rem
+                                  "
+                                >
+                                  You
+                                </span>
+                              `
+                              : ""
+                          }
+
+                        </td>
+
+                        <td>
+                          <strong>
+                            ${student.bestQuizScore}%
+                          </strong>
+                        </td>
+
+                        <td>
+                          ${student.certificates}
+                        </td>
+
+                      </tr>
+
+                    `;
+              })
+              .join("");
+          } catch (error) {
+            console.error("[CyberAware] Leaderboard loading failed:", error);
+
+            container.innerHTML = `
+
+              <tr>
+
+                <td
+                  colspan="4"
+                  class="leaderboard-empty"
+                >
+
+                  Unable to load leaderboard.
+
+                  <br />
+
+                  <span class="text-xs">
+                    Please refresh the page.
+                  </span>
+
+                </td>
+
+              </tr>
+
+            `;
+          }
+        }
+
+        /* =====================================================
+           QUIZ HUB
+        ===================================================== */
+
+        function renderHub(main) {
+          const bestScore =
+            studentData && studentData.bestQuizScore
+              ? studentData.bestQuizScore
+              : 0;
+
+          const attempts =
+            studentData && studentData.quizzesCompleted
+              ? studentData.quizzesCompleted
+              : 0;
+
+          const certificates =
+            studentData && studentData.certificates
+              ? studentData.certificates
+              : 0;
+
+          const quizList = Object.values(AppData.quizzes || {});
+
+          main.innerHTML = `
+
+            <div class="page-header animate-in">
+
+              <h1>
+                Quiz Arena 🏆
+              </h1>
+
+              <p>
+                Choose a cybersecurity topic
+                and test your knowledge.
+              </p>
+
+            </div>
+
+
+            <!-- OVERALL STATS -->
+
+            <div
+              class="grid-3"
+              style="margin-bottom:1.5rem"
+            >
+
+              <div class="card card-static">
+
+                <div class="text-sm text-muted">
+                  Quiz Attempts
+                </div>
+
+                <div
+                  style="
+                    font-size:1.8rem;
+                    font-weight:800;
+                    margin-top:.3rem;
+                  "
+                >
+                  ${attempts}
+                </div>
+
+              </div>
+
+
+              <div class="card card-static">
+
+                <div class="text-sm text-muted">
+                  Best Score
+                </div>
+
+                <div
+                  style="
+                    font-size:1.8rem;
+                    font-weight:800;
+                    margin-top:.3rem;
+                  "
+                >
+                  ${bestScore}%
+                </div>
+
+              </div>
+
+
+              <div class="card card-static">
+
+                <div class="text-sm text-muted">
+                  Certificates
+                </div>
+
+                <div
+                  style="
+                    font-size:1.8rem;
+                    font-weight:800;
+                    margin-top:.3rem;
+                  "
+                >
+                  ${certificates}
+                </div>
+
+              </div>
+
+            </div>
+
+
+            <!-- TOPIC QUIZZES -->
+
+            <div class="card card-static">
+
+              <div
+                class="
+                  flex
+                  justify-between
+                  items-center
+                  mb-4
+                  gap-2
+                  flex-wrap
+                "
+              >
+
+                <div>
+
+                  <h2>
+                    Choose Your Quiz
+                  </h2>
+
+                  <p
+                    class="text-sm text-muted"
+                    style="margin-top:.25rem"
+                  >
+                    Each topic has its own quiz,
+                    badge and certificate.
+                  </p>
+
+                </div>
+
+                <span class="badge badge-primary">
+                  ${quizList.length} Topics
+                </span>
+
+              </div>
+
+
+              <div
+                class="grid-2"
+                style="gap:1rem"
+              >
+
+                ${
+                  quizList.length === 0
+                    ? `
+                      <div class="text-muted">
+                        No quizzes available.
+                      </div>
+                    `
+                    : quizList
+                        .map(function (quiz) {
+                          const score = getTopicScore(quiz.id);
+
+                          const required = getRequiredPercentage(quiz);
+
+                          const certificate = hasTopicCertificate(quiz.id);
+
+                          const percentage = Math.min(100, Math.max(0, score));
+
+                          const questionCount = Array.isArray(quiz.questions)
+                            ? quiz.questions.length
+                            : 0;
+
+                          return `
+
+                            <div
+                              class="
+                                card
+                                card-static
+                                quiz-topic-card
+                              "
+                              data-quiz-card="${quiz.id}"
+                            >
+
+                              <div
+                                class="
+                                  quiz-topic-icon
+                                "
+                              >
+                                ${quiz.icon || "🛡️"}
+                              </div>
+
+
+                              <div
+                                class="
+                                  flex
+                                  justify-between
+                                  items-start
+                                  gap-2
+                                "
+                              >
+
+                                <div>
+
+                                  <h3>
+                                    ${quiz.title}
+                                  </h3>
+
+                                  <p
+                                    class="
+                                      text-sm
+                                      text-muted
+                                      mt-1
+                                    "
+                                  >
+                                    ${questionCount}
+                                    questions ·
+                                    8:00 timer
+                                  </p>
+
+                                </div>
+
+
+                                ${
+                                  certificate
+                                    ? `
+                                      <span
+                                        class="
+                                          badge
+                                          badge-success
+                                        "
+                                        title="
+                                          Certificate earned
+                                        "
+                                      >
+                                        🏆
+                                      </span>
+                                    `
+                                    : ""
+                                }
+
+                              </div>
+
+
+                              <div
+                                class="
+                                  flex
+                                  justify-between
+                                  items-center
+                                  mt-3
+                                "
+                              >
+
+                                <span
+                                  class="
+                                    text-xs
+                                    text-muted
+                                  "
+                                >
+                                  ${
+                                    score > 0
+                                      ? `Best: ${score}%`
+                                      : "Not attempted"
+                                  }
+                                </span>
+
+
+                                ${
+                                  certificate
+                                    ? `
+                                      <span
+                                        class="
+                                          certificate-status
+                                        "
+                                        style="
+                                          color:var(--success);
+                                        "
+                                      >
+                                        Certificate Earned
+                                      </span>
+                                    `
+                                    : `
+                                      <span
+                                        class="
+                                          text-xs
+                                          text-muted
+                                        "
+                                      >
+                                        Pass: ${required}%
+                                      </span>
+                                    `
+                                }
+
+                              </div>
+
+
+                              <div
+                                class="topic-progress"
+                              >
+
+                                <div
+                                  class="
+                                    topic-progress-bar
+                                    ${certificate ? "passed" : ""}
+                                  "
+                                  style="
+                                    width:${percentage}%;
+                                  "
+                                ></div>
+
+                              </div>
+
+
+                              <div
+                                class="
+                                  flex
+                                  justify-between
+                                  mt-2
+                                  text-xs
+                                  text-muted
+                                "
+                              >
+
+                                <span>
+                                  Progress
+                                </span>
+
+                                <span>
+                                  ${score}% /
+                                  ${required}%
+                                </span>
+
+                              </div>
+
+
+                              <button
+                                class="
+                                  btn
+                                  btn-primary
+                                  mt-3
+                                  topic-start-btn
+                                "
+                                data-quiz-id="${quiz.id}"
+                                style="width:100%"
+                              >
+
+                                ${score > 0 ? "Retake Quiz →" : "Start Quiz →"}
+
+                              </button>
+
+                            </div>
+
+                          `;
+                        })
+                        .join("")
+                }
+
+              </div>
+
+            </div>
+
+
+            <!-- TOPIC BADGES -->
+
+            <div
+              class="card card-static"
+              style="margin-top:1.5rem"
+            >
+
+              <div class="mb-4">
+
+                <h2>
+                  Topic Badges 🎖️
+                </h2>
+
+                <p
+                  class="text-sm text-muted"
+                  style="margin-top:.25rem"
+                >
+                  Reach the required percentage
+                  in each topic quiz to unlock
+                  its badge and certificate.
+                </p>
+
+              </div>
+
+
+              <div
+                class="grid-2"
+                style="gap:1rem"
+              >
+
+                ${quizList
+                  .map(function (quiz) {
+                    const score = getTopicScore(quiz.id);
+
+                    const required = getRequiredPercentage(quiz);
+
+                    const earned = hasTopicCertificate(quiz.id);
+
+                    return `
+
+                      <div
+                        class="
+                          topic-badge-box
+                          ${earned ? "earned" : "locked"}
+                        "
+                      >
+
+                        <div
+                          class="
+                            flex
+                            items-center
+                            gap-3
+                          "
+                        >
+
+                          <div
+                            style="
+                              font-size:1.8rem;
+                            "
+                          >
+                            ${quiz.badgeIcon || quiz.icon || "🏅"}
+                          </div>
+
+                          <div style="flex:1">
+
+                            <strong>
+                              ${
+                                quiz.badgeName ||
+                                quiz.badge ||
+                                quiz.title + " Badge"
+                              }
+                            </strong>
+
+                            <div
+                              class="
+                                text-xs
+                                text-muted
+                                mt-1
+                              "
+                            >
+                              ${
+                                earned
+                                  ? `✓ Earned · ${score}%`
+                                  : `🔒 ${score}% / ${required}% required`
+                              }
+                            </div>
+
+                          </div>
+
+                          ${
+                            earned
+                              ? `
+                                <span
+                                  class="
+                                    badge
+                                    badge-success
+                                  "
+                                >
+                                  ✓
+                                </span>
+                              `
+                              : `
+                                <span
+                                  class="
+                                    badge
+                                    badge-secondary
+                                  "
+                                >
+                                  🔒
+                                </span>
+                              `
+                          }
+
+                        </div>
+
+
+                        ${
+                          !earned
+                            ? `
+                              <div
+                                class="topic-progress"
+                              >
+
+                                <div
+                                  class="topic-progress-bar"
+                                  style="
+                                    width:${Math.min(100, Math.max(0, score))}%;
+                                  "
+                                ></div>
+
+                              </div>
+                            `
+                            : ""
+                        }
+
+                      </div>
+
+                    `;
+                  })
+                  .join("")}
+
+              </div>
+
+            </div>
+
+
+            <!-- LEADERBOARD -->
+
+            <div
+              class="card card-static"
+              style="margin-top:1.5rem"
+            >
+
+              <div
+                class="
+                  flex
+                  justify-between
+                  items-center
+                  mb-3
+                  gap-2
+                  flex-wrap
+                "
+              >
+
+                <h3>
+                  🏆 Leaderboard
+                </h3>
+
+                <span
+                  class="text-xs text-muted"
+                >
+                  Live Firebase Data
+                </span>
+
+              </div>
+
+
+              <div class="table-wrap">
+
+                <table class="data-table">
+
+                  <thead>
+
+                    <tr>
+
+                      <th>
+                        Rank
+                      </th>
+
+                      <th>
+                        Student
+                      </th>
+
+                      <th>
+                        Best Score
+                      </th>
+
+                      <th>
+                        Certificates
+                      </th>
+
+                    </tr>
+
+                  </thead>
+
+
+                  <tbody
+                    id="leaderboard-body"
+                  >
+
+                    <tr>
+
+                      <td
+                        colspan="4"
+                        class="leaderboard-loading"
+                      >
+                        Loading leaderboard...
+                      </td>
+
+                    </tr>
+
+                  </tbody>
+
+                </table>
+
+              </div>
+
+            </div>
+
+
+            <!-- GENERAL CERTIFICATE PREVIEW -->
+
+            <div class="certificate-wrapper">
+
+              <div
+                class="
+                  certificate-card
+                  ${certificates > 0 ? "" : "certificate-locked"}
+                "
+              >
+
+                <div class="certificate-inner">
+
+                  ${
+                    certificates > 0
+                      ? `
+                        <div
+                          class="certificate-logo"
+                        >
+                          🏆
+                        </div>
+
+                        <div
+                          class="
+                            certificate-small-title
+                          "
+                        >
+                          CyberAware
+                        </div>
+
+                        <div
+                          class="
+                            certificate-main-title
+                          "
+                        >
+                          Certificate of Achievement
+                        </div>
+
+                        <div
+                          class="
+                            certificate-subtitle
+                          "
+                        >
+                          Cybersecurity Awareness
+                        </div>
+
+                        <div
+                          class="
+                            certificate-divider
+                          "
+                        ></div>
+
+                        <div
+                          class="
+                            certificate-awarded
+                          "
+                        >
+                          This certificate is proudly
+                          awarded to
+                        </div>
+
+                        <div
+                          class="
+                            certificate-name
+                          "
+                        >
+                          ${studentData.name}
+                        </div>
+
+                        <div
+                          class="
+                            certificate-topic
+                          "
+                        >
+                          for completing a CyberAware
+                          topic certification
+                        </div>
+
+                        <div
+                          class="
+                            certificate-score
+                          "
+                        >
+                          🏆 ${certificates}
+                          Certificate${certificates === 1 ? "" : "s"} Earned
+                        </div>
+
+                        <div
+                          class="
+                            certificate-footer
+                          "
+                        >
+
+                          <span>
+                            CyberAware Platform
+                          </span>
+
+                          <span>
+                            2026
+                          </span>
+
+                        </div>
+                      `
+                      : `
+                        <div
+                          class="
+                            certificate-lock-icon
+                          "
+                        >
+                          🔒
+                        </div>
+
+                        <div
+                          class="
+                            certificate-small-title
+                          "
+                        >
+                          CyberAware
+                        </div>
+
+                        <div
+                          class="
+                            certificate-main-title
+                          "
+                        >
+                          Certificate Preview
+                        </div>
+
+                        <div
+                          class="
+                            certificate-subtitle
+                          "
+                        >
+                          Complete a topic quiz
+                          to unlock your certificate.
+                        </div>
+
+                        <div
+                          class="
+                            certificate-divider
+                          "
+                        ></div>
+
+                        <div
+                          class="
+                            certificate-awarded
+                          "
+                        >
+                          Student
+                        </div>
+
+                        <div
+                          class="
+                            certificate-name
+                          "
+                        >
+                          ${studentData.name}
+                        </div>
+
+                        <div
+                          class="
+                            certificate-topic
+                          "
+                        >
+                          Reach the required score
+                          for any topic.
+                        </div>
+
+                        <div
+                          class="
+                            certificate-score
+                          "
+                        >
+                          🔒 Certificate Locked
+                        </div>
+
+                        <div
+                          class="
+                            certificate-footer
+                          "
+                        >
+
+                          <span>
+                            CyberAware Platform
+                          </span>
+
+                          <span>
+                            2026
+                          </span>
+
+                        </div>
+                      `
+                  }
+
+                </div>
+
+              </div>
+
+            </div>
+
+          `;
+
+          /* =====================================================
+             TOPIC CARD CLICK
+          ===================================================== */
+
+          document
+            .querySelectorAll("[data-quiz-card]")
+            .forEach(function (element) {
+              element.onclick = function (event) {
+                if (event.target.closest(".topic-start-btn")) {
+                  return;
+                }
+
+                openQuiz(element.dataset.quizCard);
+              };
+            });
+
+          /* =====================================================
+             BUTTON CLICK
+          ===================================================== */
+
+          document
+            .querySelectorAll(".topic-start-btn")
+            .forEach(function (button) {
+              button.onclick = function (event) {
+                event.stopPropagation();
+
+                openQuiz(button.dataset.quizId);
+              };
+            });
+
+          hideLoader();
+
+          loadLeaderboard();
+        }
+
+        /* =====================================================
+           FORMAT TIME
+        ===================================================== */
+
+        function formatTime(s) {
+          const m = Math.floor(s / 60);
+
+          const sec = s % 60;
+
+          return (
+            String(m).padStart(2, "0") + ":" + String(sec).padStart(2, "0")
+          );
+        }
+
+        /* =====================================================
+           PLAY QUIZ
+        ===================================================== */
+
+        function renderPlay(main) {
+          const quiz = AppData.quizzes[selectedQuizId];
+
+          const q = qs[idx];
+
+          if (!quiz || !q) {
+            mode = "hub";
+
+            render();
+
+            return;
+          }
+
+          const progress = ((idx + 1) / qs.length) * 100;
+
+          const correctAnswer =
+            typeof q.correct === "number" ? q.correct : q.answer;
+
+          const selectedAnswer = answers[idx];
+
+          main.innerHTML = `
+
+            <div
+              style="
+                max-width:740px;
+                margin:0 auto;
+              "
+              class="animate-in"
+            >
+
+              <!-- BREADCRUMB -->
+
+              <div
+                class="quiz-breadcrumb"
+              >
+
+                <button
+                  class="
+                    btn
+                    btn-secondary
+                    quiz-back-btn
+                  "
+                  id="back-to-topics"
+                >
+                  ← Topics
+                </button>
+
+                <span
+                  class="text-muted"
+                >
+                  ${quiz.icon || "🛡️"}
+                  ${quiz.title}
+                </span>
+
+              </div>
+
+
+              <!-- TIMER -->
+
+              <div
+                class="
+                  flex
+                  justify-between
+                  items-center
+                  mb-3
+                  flex-wrap
+                  gap-2
+                "
+              >
+
+                <span
+                  class="
+                    badge
+                    badge-danger
+                  "
+                >
+
+                  ⏱
+
+                  <span id="timer">
+                    ${formatTime(seconds)}
+                  </span>
+
+                </span>
+
+
+                <span
+                  class="text-sm text-muted"
+                >
+
+                  Question
+                  ${idx + 1}
+                  /
+                  ${qs.length}
+
+                </span>
+
+              </div>
+
+
+              <!-- PROGRESS -->
+
+              <div
+                class="
+                  progress
+                  progress-lg
+                  mb-4
+                "
+              >
+
+                <div
+                  class="progress-bar"
+                  style="
+                    width:${progress}%
+                  "
+                ></div>
+
+              </div>
+
+
+              <!-- QUESTION CARD -->
+
+              <div
+                class="
+                  card
+                  card-static
+                "
+              >
+
+                <div
+                  class="
+                    text-sm
+                    text-muted
+                    mb-2
+                  "
+                >
+                  ${quiz.icon || "🛡️"}
+                  ${quiz.title}
+                </div>
+
+
+                <h2
+                  style="
+                    font-size:1.2rem;
+                    margin-bottom:1.25rem;
+                  "
+                >
+                  ${q.q || q.question}
+                </h2>
+
+
+                <!-- OPTIONS -->
+
+                ${q.options
+                  .map(function (opt, i) {
+                    let cls = selectedAnswer === i ? "selected" : "";
+
+                    if (revealed) {
+                      if (i === correctAnswer) {
+                        cls = "correct";
+                      } else if (selectedAnswer === i && i !== correctAnswer) {
+                        cls = "wrong";
+                      }
+                    }
+
+                    return `
+
+                        <div
+                          class="
+                            option-card
+                            ${cls}
+                            ${revealed ? "disabled" : ""}
+                          "
+                          data-i="${i}"
+                        >
+
+                          <span
+                            class="
+                              badge
+                              badge-primary
+                            "
+                          >
+                            ${String.fromCharCode(65 + i)}
+                          </span>
+
+                          <span>
+                            ${opt}
+                          </span>
+
+                        </div>
+
+                      `;
+                  })
+                  .join("")}
+
+
+                ${
+                  revealed
+                    ? `
+
+                      <div
+                        class="
+                          alert
+                          alert-info
+                          mt-3
+                        "
+                      >
+
+                        <div>
+
+                          <strong>
+                            Answer Explanation
+                          </strong>
+
+                          <p
+                            class="
+                              text-sm
+                              text-muted
+                              mt-1
+                            "
+                          >
+                            ${
+                              q.explanation ||
+                              `The correct answer is: ${
+                                q.options[correctAnswer]
+                              }`
+                            }
+                          </p>
+
+                        </div>
+
+                      </div>
+
+                    `
+                    : ""
+                }
+
+
+                <!-- BUTTONS -->
+
+                <div
+                  class="
+                    flex
+                    justify-between
+                    mt-4
+                    gap-2
+                  "
+                >
+
+                  <button
+                    class="
+                      btn
+                      btn-secondary
+                    "
+                    id="check-btn"
+                    ${revealed ? "disabled" : ""}
+                  >
+                    Check Answer
+                  </button>
+
+
+                  <button
+                    class="
+                      btn
+                      btn-primary
+                    "
+                    id="next-btn"
+                  >
+                    ${idx === qs.length - 1 ? "Finish" : "Next →"}
+                  </button>
+
+                </div>
+
+              </div>
+
+            </div>
+
+          `;
+
+          /* =====================================================
+             BACK
+          ===================================================== */
+
+          document.getElementById("back-to-topics").onclick = function () {
+            clearInterval(timerId);
+
+            selectedQuizId = null;
+
+            qs = [];
+
+            answers = {};
+
+            mode = "hub";
+
+            render();
+          };
+
+          /* =====================================================
+             OPTION CLICK
+          ===================================================== */
+
+          document.querySelectorAll(".option-card").forEach(function (card) {
+            card.onclick = function () {
+              if (revealed) {
+                return;
+              }
+
+              answers[idx] = Number(card.dataset.i);
+
+              renderPlay(main);
+            };
+          });
+
+          /* =====================================================
+             CHECK ANSWER
+          ===================================================== */
+
+          document.getElementById("check-btn").onclick = function () {
+            if (answers[idx] === undefined) {
+              App.toast("Select an option", "warning");
+
+              return;
+            }
+
+            revealed = true;
+
+            const ok = answers[idx] === correctAnswer;
+
+            App.toast(
+              ok ? "Correct!" : "Not quite — see the correct answer.",
+              ok ? "success" : "error",
+            );
+
+            renderPlay(main);
+          };
+
+          /* =====================================================
+             NEXT
+          ===================================================== */
+
+          document.getElementById("next-btn").onclick = function () {
+            if (answers[idx] === undefined) {
+              App.toast("Select an option", "warning");
+
+              return;
+            }
+
+            if (!revealed) {
+              revealed = true;
+
+              renderPlay(main);
+
+              return;
+            }
+
+            if (idx === qs.length - 1) {
+              finish();
+            } else {
+              idx++;
+
+              revealed = false;
+
+              render();
+            }
+          };
+        }
+
+        /* =====================================================
+           SAVE QUIZ RESULT
+        ===================================================== */
+
+        async function saveQuizResult(score, correct, total) {
+          if (!currentUser || !db) {
+            throw new Error("Firebase student session unavailable.");
+          }
+
+          const quiz = AppData.quizzes[selectedQuizId];
+
+          if (!quiz) {
+            throw new Error("Selected quiz not found.");
+          }
+
+          const requiredPercentage = getRequiredPercentage(quiz);
+
+          const userRef = db.collection("users").doc(currentUser.uid);
+
+          const snap = await userRef.get();
+
+          const existing = snap.exists ? snap.data() : {};
+
+          /* =====================================================
+             OVERALL VALUES
+          ===================================================== */
+
+          const previousAttempts = Number(existing.quizzesCompleted || 0);
+
+          const previousBest = Number(existing.bestQuizScore || 0);
+
+          const previousCertificates = Number(existing.certificates || 0);
+
+          const newBest = Math.max(previousBest, score);
+
+          const newAttempts = previousAttempts + 1;
+
+          const awarenessScore = Number(existing.awarenessScore || 0);
+
+          /* =====================================================
+             PREVIOUS TOPIC ATTEMPTS
+          ===================================================== */
+
+          let previousTopicScore = 0;
+
+          let alreadyCertified = false;
+
+          try {
+            const topicSnapshot = await userRef
+              .collection("quizAttempts")
+              .where("quizId", "==", selectedQuizId)
+              .get();
+
+            topicSnapshot.forEach(function (doc) {
+              const attempt = doc.data();
+
+              const attemptScore = Number(attempt.score || 0);
+
+              if (attemptScore > previousTopicScore) {
+                previousTopicScore = attemptScore;
+              }
+
+              if (attempt.certificateEarned === true) {
+                alreadyCertified = true;
+              }
+            });
+          } catch (error) {
+            console.warn(
+              "[CyberAware] Previous topic attempts could not be loaded:",
+              error,
+            );
+          }
+
+          const topicBest = Math.max(previousTopicScore, score);
+
+          /*
+            IMPORTANT:
+
+            Certificate is based on
+            THIS TOPIC'S required percentage.
+          */
+
+          const topicPassed = topicBest >= requiredPercentage;
+
+          /*
+            Certificate count increases
+            only the first time the topic
+            becomes certified.
+          */
+
+          const certificateEarned = topicPassed && !alreadyCertified;
+
+          const newCertificates = certificateEarned
+            ? previousCertificates + 1
+            : previousCertificates;
+
+          /* =====================================================
+             SAVE QUIZ ATTEMPT
+          ===================================================== */
+
+          await userRef.collection("quizAttempts").add({
+            quizId: selectedQuizId,
+
+            quizTitle: quiz.title,
+
+            score: score,
+
+            correct: correct,
+
+            total: total,
+
+            requiredPercentage: requiredPercentage,
+
+            certificateEarned: certificateEarned,
+
+            topicBest: topicBest,
+
+            answers: answers,
+
+            completedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          });
+
+          /* =====================================================
+             UPDATE USER
+          ===================================================== */
+
+          await userRef.set(
+            {
+              quizzesCompleted: newAttempts,
+
+              quizAttempts: newAttempts,
+
+              bestQuizScore: newBest,
+
+              certificates: newCertificates,
+
+              lastQuizScore: score,
+
+              lastQuizCorrect: correct,
+
+              lastQuizTotal: total,
+
+              lastQuizAt: firebase.firestore.FieldValue.serverTimestamp(),
+
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            },
+            {
+              merge: true,
+            },
+          );
+
+          /* =====================================================
+             UPDATE LEADERBOARD
+          ===================================================== */
+
+          const leaderboardRef = db
+            .collection("leaderboard")
+            .doc(currentUser.uid);
+
+          await leaderboardRef.set({
+            name: existing.name || currentUser.displayName || "Student",
+
+            bestQuizScore: newBest,
+
+            awarenessScore: awarenessScore,
+
+            certificates: newCertificates,
+
+            quizzesCompleted: newAttempts,
+          });
+
+          /* =====================================================
+             UPDATE LOCAL STUDENT
+          ===================================================== */
+
+          studentData = {
+            ...existing,
+
+            quizzesCompleted: newAttempts,
+
+            quizAttempts: newAttempts,
+
+            bestQuizScore: newBest,
+
+            certificates: newCertificates,
+
+            lastQuizScore: score,
+
+            lastQuizCorrect: correct,
+
+            lastQuizTotal: total,
+          };
+
+          /* =====================================================
+             UPDATE LOCAL TOPIC PROGRESS
+          ===================================================== */
+
+          if (!topicProgress[selectedQuizId]) {
+            topicProgress[selectedQuizId] = {
+              bestScore: 0,
+              certificate: false,
+            };
+          }
+
+          topicProgress[selectedQuizId].bestScore = Math.max(
+            topicProgress[selectedQuizId].bestScore,
+            score,
+          );
+
+          topicProgress[selectedQuizId].certificate =
+            topicProgress[selectedQuizId].bestScore >= requiredPercentage;
+
+          console.log("[CyberAware] Quiz result saved successfully:", {
+            quizId: selectedQuizId,
+
+            score: score,
+
+            correct: correct,
+
+            total: total,
+
+            requiredPercentage: requiredPercentage,
+
+            topicBest: topicBest,
+
+            certificateEarned: certificateEarned,
+
+            totalCertificates: newCertificates,
+          });
+
+          return {
+            score: score,
+
+            correct: correct,
+
+            total: total,
+
+            newBest: newBest,
+
+            newCertificates: newCertificates,
+
+            certificateEarned: certificateEarned,
+
+            topicBest: topicBest,
+
+            requiredPercentage: requiredPercentage,
+          };
+        }
+
+        /* =====================================================
+           FINISH QUIZ
+        ===================================================== */
+
+        async function finish() {
+          clearInterval(timerId);
+
+          let correct = 0;
+
+          qs.forEach(function (q, questionIndex) {
+            const correctAnswer =
+              typeof q.correct === "number" ? q.correct : q.answer;
+
+            if (answers[questionIndex] === correctAnswer) {
+              correct++;
+            }
+          });
+
+          const score =
+            qs.length > 0 ? Math.round((correct / qs.length) * 100) : 0;
+
+          try {
+            const saved = await saveQuizResult(score, correct, qs.length);
+
+            window.__quiz = {
+              quizId: selectedQuizId,
+
+              quizTitle: AppData.quizzes[selectedQuizId].title,
+
+              score: saved.score,
+
+              correct: saved.correct,
+
+              total: saved.total,
+
+              certificateEarned: saved.certificateEarned,
+
+              topicBest: saved.topicBest,
+
+              requiredPercentage: saved.requiredPercentage,
+            };
+
+            mode = "result";
+
+            render();
+
+            App.toast("Quiz result saved successfully!", "success");
+          } catch (error) {
+            console.error("[CyberAware] Quiz save failed:", error);
+
+            App.toast(
+              "Quiz completed, but result could not be saved.",
+              "error",
+            );
+
+            window.__quiz = {
+              quizId: selectedQuizId,
+
+              quizTitle: AppData.quizzes[selectedQuizId].title,
+
+              score: score,
+
+              correct: correct,
+
+              total: qs.length,
+
+              certificateEarned: false,
+
+              topicBest: score,
+
+              requiredPercentage: getRequiredPercentage(
+                AppData.quizzes[selectedQuizId],
+              ),
+            };
+
+            mode = "result";
+
+            render();
+          }
+        }
+
+        /* =====================================================
+           RESULT
+        ===================================================== */
+
+        function renderResult(main) {
+          const r = window.__quiz;
+
+          if (!r) {
+            mode = "hub";
+
+            render();
+
+            return;
+          }
+
+          const quiz = AppData.quizzes[r.quizId];
+
+          if (!quiz) {
+            mode = "hub";
+
+            render();
+
+            return;
+          }
+
+          const required = getRequiredPercentage(quiz);
+
+          const passed = r.score >= required;
+
+          main.innerHTML = `
+
+            <div
+              style="
+                max-width:760px;
+                margin:0 auto;
+              "
+              class="animate-in"
+            >
+
+              <!-- RESULT CARD -->
+
+              <div
+                class="
+                  card
+                  card-static
+                  text-center
+                "
+                style="
+                  padding:2.5rem;
+                "
+              >
+
+                <div
+                  style="
+                    font-size:3rem;
+                  "
+                >
+                  ${passed ? "🏆" : "💪"}
+                </div>
+
+
+                <div
+                  class="
+                    text-sm
+                    text-muted
+                    mt-2
+                  "
+                >
+                  ${quiz.icon || "🛡️"}
+                  ${quiz.title}
+                </div>
+
+
+                <h1 class="mt-2">
+                  Quiz Complete
+                </h1>
+
+
+                <div
+                  style="
+                    font-size:3rem;
+                    font-weight:800;
+                  "
+                  class="gradient-text"
+                >
+                  ${r.score}%
+                </div>
+
+
+                <p
+                  class="
+                    text-muted
+                    mb-4
+                  "
+                >
+                  ${r.correct}/${r.total}
+                  correct
+                </p>
+
+
+                ${
+                  passed
+                    ? `
+
+                      <div>
+
+                        <span
+                          class="
+                            badge
+                            badge-success
+                            mb-3
+                          "
+                        >
+                          🏆 Certificate Unlocked
+                        </span>
+
+                      </div>
+
+                      <p
+                        class="
+                          text-sm
+                          text-muted
+                          mt-2
+                        "
+                      >
+                        You reached the
+                        required score of
+                        ${required}% for
+                        ${quiz.title}.
+                      </p>
+
+                    `
+                    : `
+
+                      <div>
+
+                        <span
+                          class="
+                            badge
+                            badge-warning
+                            mb-3
+                          "
+                        >
+                          ${required}% Required
+                        </span>
+
+                      </div>
+
+                      <p
+                        class="
+                          text-sm
+                          text-muted
+                          mt-2
+                        "
+                      >
+                        You scored ${r.score}%.
+                        You need ${required}%
+                        or higher to unlock
+                        this topic certificate.
+                      </p>
+
+                    `
+                }
+
+
+                <div
+                  class="
+                    flex
+                    gap-2
+                    justify-center
+                    flex-wrap
+                    mt-4
+                  "
+                >
+
+                  <button
+                    class="
+                      btn
+                      btn-primary
+                    "
+                    id="retry"
+                  >
+                    Try Again
+                  </button>
+
+
+                  <button
+                    class="
+                      btn
+                      btn-secondary
+                    "
+                    id="to-topics"
+                  >
+                    ← All Topics
+                  </button>
+
+
+                  <a
+                    href="learning.html"
+                    class="
+                      btn
+                      btn-ghost
+                    "
+                  >
+                    Learning
+                  </a>
+
+                </div>
+
+              </div>
+
+
+              <!-- CERTIFICATE -->
+
+              <div
+                class="certificate-wrapper"
+              >
+
+                <div
+                  class="
+                    certificate-card
+                    ${passed ? "" : "certificate-locked"}
+                  "
+                >
+
+                  <div
+                    class="
+                      certificate-inner
+                    "
+                  >
+
+                    ${
+                      passed
+                        ? `
+
+                          <div
+                            class="
+                              certificate-logo
+                            "
+                          >
+                            ${quiz.badgeIcon || quiz.icon || "🏆"}
+                          </div>
+
+
+                          <div
+                            class="
+                              certificate-small-title
+                            "
+                          >
+                            CyberAware
+                          </div>
+
+
+                          <div
+                            class="
+                              certificate-main-title
+                            "
+                          >
+                            Certificate of Achievement
+                          </div>
+
+
+                          <div
+                            class="
+                              certificate-subtitle
+                            "
+                          >
+                            Cybersecurity Awareness
+                          </div>
+
+
+                          <div
+                            class="
+                              certificate-divider
+                            "
+                          ></div>
+
+
+                          <div
+                            class="
+                              certificate-awarded
+                            "
+                          >
+                            This certificate is proudly
+                            awarded to
+                          </div>
+
+
+                          <div
+                            class="
+                              certificate-name
+                            "
+                          >
+                            ${studentData.name}
+                          </div>
+
+
+                          <div
+                            class="
+                              certificate-topic
+                            "
+                          >
+                            ${
+                              quiz.certificateTitle ||
+                              quiz.title + " Awareness Certification"
+                            }
+                          </div>
+
+
+                          <div
+                            class="
+                              certificate-score
+                            "
+                          >
+                            ✓ Score: ${r.score}%
+                            · Required: ${required}%
+                          </div>
+
+
+                          <div
+                            class="
+                              certificate-footer
+                            "
+                          >
+
+                            <span>
+                              CyberAware Platform
+                            </span>
+
+                            <span>
+                              2026
+                            </span>
+
+                          </div>
+
+                        `
+                        : `
+
+                          <div
+                            class="
+                              certificate-lock-icon
+                            "
+                          >
+                            🔒
+                          </div>
+
+
+                          <div
+                            class="
+                              certificate-small-title
+                            "
+                          >
+                            CyberAware
+                          </div>
+
+
+                          <div
+                            class="
+                              certificate-main-title
+                            "
+                          >
+                            Certificate Locked
+                          </div>
+
+
+                          <div
+                            class="
+                              certificate-subtitle
+                            "
+                          >
+                            ${quiz.title}
+                          </div>
+
+
+                          <div
+                            class="
+                              certificate-divider
+                            "
+                          ></div>
+
+
+                          <div
+                            class="
+                              certificate-awarded
+                            "
+                          >
+                            Awarded to
+                          </div>
+
+
+                          <div
+                            class="
+                              certificate-name
+                            "
+                          >
+                            ${studentData.name}
+                          </div>
+
+
+                          <div
+                            class="
+                              certificate-topic
+                            "
+                          >
+                            Score ${required}% or higher
+                            to unlock
+                          </div>
+
+
+                          <div
+                            class="
+                              certificate-score
+                            "
+                          >
+                            🔒 ${r.score}% /
+                            ${required}% required
+                          </div>
+
+
+                          <div
+                            class="
+                              certificate-footer
+                            "
+                          >
+
+                            <span>
+                              CyberAware Platform
+                            </span>
+
+                            <span>
+                              2026
+                            </span>
+
+                          </div>
+
+                        `
+                    }
+
+                  </div>
+
+                </div>
+
+              </div>
+
+
+              <!-- ANSWER REVIEW -->
+
+              <div
+                class="
+                  card
+                  card-static
+                  mt-4
+                  text-left
+                "
+              >
+
+                <h3 class="mb-3">
+                  Answer Review
+                </h3>
+
+
+                ${qs
+                  .map(function (q, questionIndex) {
+                    const userAnswer = answers[questionIndex];
+
+                    const correctAnswer =
+                      typeof q.correct === "number" ? q.correct : q.answer;
+
+                    const isCorrect = userAnswer === correctAnswer;
+
+                    return `
+
+                        <div
+                          style="
+                            padding:.85rem 0;
+                            border-bottom:
+                              1px solid
+                              var(--border);
+                          "
+                        >
+
+                          <strong
+                            class="text-sm"
+                          >
+                            Q${questionIndex + 1}.
+                            ${q.q || q.question}
+                          </strong>
+
+
+                          <div
+                            class="
+                              text-xs
+                              mt-2
+                            "
+                          >
+
+                            <span
+                              class="text-muted"
+                            >
+                              Your answer:
+                            </span>
+
+                            <strong>
+                              ${
+                                userAnswer !== undefined
+                                  ? q.options[userAnswer]
+                                  : "—"
+                              }
+                            </strong>
+
+
+                            ${
+                              isCorrect
+                                ? `
+                                  <span>
+                                    ✅
+                                  </span>
+                                `
+                                : `
+
+                                  <span>
+                                    ❌
+                                  </span>
+
+                                  <div
+                                    class="
+                                      text-xs
+                                      mt-1
+                                      text-muted
+                                    "
+                                  >
+                                    Correct answer:
+
+                                    <strong>
+                                      ${q.options[correctAnswer]}
+                                    </strong>
+
+                                  </div>
+
+                                `
+                            }
+
+                          </div>
+
+                        </div>
+
+                      `;
+                  })
+                  .join("")}
+
+              </div>
+
+            </div>
+
+          `;
+
+          /* =====================================================
+             RETRY
+          ===================================================== */
+
+          document.getElementById("retry").onclick = function () {
+            openQuiz(r.quizId);
+          };
+
+          /* =====================================================
+             TOPICS
+          ===================================================== */
+
+          document.getElementById("to-topics").onclick = function () {
+            selectedQuizId = null;
+
+            qs = [];
+
+            answers = {};
+
+            mode = "hub";
+
+            render();
+          };
+
+          hideLoader();
+        }
+
+        /* =====================================================
+           HIDE LOADER
+        ===================================================== */
+
+        function hideLoader() {
+          const loader = document.getElementById("page-loader");
+
+          if (loader) {
+            setTimeout(function () {
+              loader.classList.add("hidden");
+            }, 300);
+          }
+        }
+
+        /* =====================================================
+           START APPLICATION
+        ===================================================== */
+
+        async function start() {
+          try {
+            await loadStudent();
+
+            buildLayout();
+
+            render();
+
+            console.log("[CyberAware] Quiz page loaded successfully.");
+          } catch (error) {
+            console.error("[CyberAware] Quiz page error:", error);
+
+            document.getElementById("app-root").innerHTML = `
+
+              <div
+                style="
+                  min-height:100vh;
+                  display:flex;
+                  justify-content:center;
+                  align-items:center;
+                  padding:2rem;
+                "
+              >
+
+                <div
+                  class="card"
+                  style="
+                    max-width:550px;
+                    text-align:center;
+                  "
+                >
+
+                  <div
+                    style="
+                      font-size:3rem;
+                      margin-bottom:1rem;
+                    "
+                  >
+                    ⚠️
+                  </div>
+
+
+                  <h2>
+                    Unable to Load Quiz
+                  </h2>
+
+
+                  <p
+                    class="text-muted"
+                    style="
+                      margin-top:.75rem;
+                      line-height:1.7;
+                    "
+                  >
+                    There was a problem loading
+                    your Firebase student profile.
+                    Please refresh the page.
+                  </p>
+
+
+                  <button
+                    class="
+                      btn
+                      btn-primary
+                    "
+                    style="
+                      margin-top:1rem
+                    "
+                    onclick="location.reload()"
+                  >
+                    Refresh Page
+                  </button>
+
+                </div>
+
+              </div>
+
+            `;
+          }
+        }
+
+        start();
+      });
+    </script>
+  </body>
+</html>

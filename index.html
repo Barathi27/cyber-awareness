@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="CyberAware — Fake News Detection & Cybersecurity Awareness Platform for Colleges" />
+  <title>CyberAware | Fake News Detection Awareness in Colleges</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { display: ['Plus Jakarta Sans','sans-serif'], sans: ['Inter','sans-serif'] },
+          colors: { brand: { DEFAULT:'#4f46e5', soft:'#818cf8' }, accent:'#7c3aed' }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div class="loader-overlay" id="page-loader">
+    <div class="spinner"></div>
+    <div style="font-weight:800" class="gradient-text">CyberAware</div>
+    <div class="text-sm text-muted">Initializing secure platform…</div>
+  </div>
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="navbar-inner">
+      <a href="index.html" class="brand">
+        <div class="brand-icon">🛡️</div>
+        <span>CyberAware</span>
+      </a>
+      <ul class="nav-links" id="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#why">Why It Matters</a></li>
+        <li><a href="#how">How It Works</a></li>
+        <li><a href="#modules">Modules</a></li>
+        <li><a href="#faq">FAQ</a></li>
+      </ul>
+      <div class="nav-actions">
+        <button class="btn btn-ghost btn-icon" data-theme-toggle title="Theme" aria-label="Toggle theme">🌓</button>
+        <a href="pages/login.html" class="btn btn-secondary btn-sm">Login</a>
+        <a href="pages/login.html" class="btn btn-primary btn-sm">Get Started</a>
+        <button class="mobile-toggle" data-nav-toggle aria-label="Menu">☰</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <header class="hero">
+    <div class="container hero-grid">
+      <div class="animate-in">
+        <div class="hero-badge">
+          <span>🛡️</span> Fake News Detection Awareness in Colleges
+        </div>
+        <h1>Protect every student from <span class="gradient-text">digital deception</span></h1>
+        <p class="hero-desc">
+          A premium cybersecurity awareness platform that helps college students detect fake news,
+          phishing, fake internships, scholarship scams — and verify threats with AI.
+        </p>
+        <div class="hero-cta">
+          <a href="pages/login.html" class="btn btn-primary btn-lg">Start Awareness Journey →</a>
+          <a href="#modules" class="btn btn-secondary btn-lg">Explore Modules</a>
+        </div>
+        <div class="flex flex-wrap gap-4 text-sm text-muted">
+          <span>✓ AI Scam Checker</span>
+          <span>✓ Community Alerts</span>
+          <span>✓ Browser Protection</span>
+          <span>✓ Quizzes & Certificates</span>
+        </div>
+      </div>
+
+      <div class="hero-visual animate-in delay-2">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="hero-panel">
+          <div class="flex justify-between items-center mb-4">
+            <strong>Threat Radar</strong>
+            <span class="badge badge-danger">Live</span>
+          </div>
+          <div class="flex flex-col gap-3">
+            <div class="alert alert-danger" style="margin:0;padding:0.85rem">
+              <div>
+                <strong class="text-sm">Fake TCS Internship Offer</strong>
+                <div class="text-xs text-muted">WhatsApp · Critical · Verified</div>
+              </div>
+            </div>
+            <div class="alert alert-warning" style="margin:0;padding:0.85rem">
+              <div>
+                <strong class="text-sm">Microsoft Internship Phish</strong>
+                <div class="text-xs text-muted">Email · High Risk · Trending</div>
+              </div>
+            </div>
+            <div class="alert alert-info" style="margin:0;padding:0.85rem">
+              <div>
+                <strong class="text-sm">Fake Scholarship Portal</strong>
+                <div class="text-xs text-muted">Web · Admin Verified</div>
+              </div>
+            </div>
+          </div>
+          <div class="mt-4 flex justify-between items-center">
+            <div>
+              <div class="text-xs text-muted">Campus Awareness Score</div>
+              <div style="font-size:1.75rem;font-weight:800" class="gradient-text">78%</div>
+            </div>
+            <div class="progress progress-lg" style="width:55%"><div class="progress-bar" style="width:78%"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- INTRO -->
+  <section class="section" id="intro" style="padding-top:1rem">
+    <div class="container">
+      <div class="card card-static animate-in" style="padding:2.5rem;background:var(--gradient-soft)">
+        <div class="grid-2" style="align-items:center;gap:2.5rem">
+          <div>
+            <span class="badge badge-primary mb-3">Project Mission</span>
+            <h2 style="margin-bottom:0.85rem">Centralized cybersecurity literacy for campus life</h2>
+            <p class="text-muted">
+              Students face a surge of fake internship offers, scholarship fraud, OTP scams, and
+              deepfake content. CyberAware combines interactive learning, AI analysis, community
+              reporting, and browser protection into one commercial-grade platform.
+            </p>
+          </div>
+          <div class="grid-2" style="gap:1rem">
+            <div class="card card-static" style="text-align:center;padding:1.25rem">
+              <div style="font-size:1.75rem;font-weight:800" class="gradient-text">5</div>
+              <div class="text-sm text-muted">Core Modules</div>
+            </div>
+            <div class="card card-static" style="text-align:center;padding:1.25rem">
+              <div style="font-size:1.75rem;font-weight:800" class="gradient-text">AI</div>
+              <div class="text-sm text-muted">Scam Analysis</div>
+            </div>
+            <div class="card card-static" style="text-align:center;padding:1.25rem">
+              <div style="font-size:1.75rem;font-weight:800" class="gradient-text">24/7</div>
+              <div class="text-sm text-muted">Alert Wall</div>
+            </div>
+            <div class="card card-static" style="text-align:center;padding:1.25rem">
+              <div style="font-size:1.75rem;font-weight:800" class="gradient-text">Ext</div>
+              <div class="text-sm text-muted">Browser Guard</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="section" id="features">
+    <div class="container">
+      <div class="section-header">
+        <h2>Enterprise-grade features for campus security</h2>
+        <p>Built like a real cybersecurity SaaS — designed for student workflows and college admins.</p>
+      </div>
+      <div class="grid-3">
+        <article class="card animate-in">
+          <div class="feature-icon">📋</div>
+          <h3 style="margin-bottom:0.5rem">Pre & Post Surveys</h3>
+          <p class="text-muted text-sm">Measure awareness before and after training with scored insights and weak-area mapping.</p>
+        </article>
+        <article class="card animate-in delay-1">
+          <div class="feature-icon">🎓</div>
+          <h3 style="margin-bottom:0.5rem">Interactive Learning</h3>
+          <p class="text-muted text-sm">Modules on fake news, phishing, internships, scholarships, deepfakes, and safe browsing.</p>
+        </article>
+        <article class="card animate-in delay-2">
+          <div class="feature-icon">🤖</div>
+          <h3 style="margin-bottom:0.5rem">AI Scam Checker</h3>
+          <p class="text-muted text-sm">Paste suspicious messages or upload screenshots for scam probability and keyword highlights.</p>
+        </article>
+        <article class="card animate-in">
+          <div class="feature-icon">🚨</div>
+          <h3 style="margin-bottom:0.5rem">Community Alert Wall</h3>
+          <p class="text-muted text-sm">Live feed of campus scam reports with verification badges, likes, and filters.</p>
+        </article>
+        <article class="card animate-in delay-1">
+          <div class="feature-icon">🧩</div>
+          <h3 style="margin-bottom:0.5rem">Browser Extension</h3>
+          <p class="text-muted text-sm">Frontend demo of real-time website risk indicators and danger warnings.</p>
+        </article>
+        <article class="card animate-in delay-2">
+          <div class="feature-icon">📊</div>
+          <h3 style="margin-bottom:0.5rem">Analytics & Admin</h3>
+          <p class="text-muted text-sm">Track improvement, quiz performance, AI usage, and approve community posts.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHY -->
+  <section class="section" id="why" style="padding-top:0">
+    <div class="container">
+      <div class="section-header">
+        <h2>Why students need this platform</h2>
+        <p>Campus digital life is a high-value target for fraudsters.</p>
+      </div>
+      <div class="grid-2">
+        <div class="card card-static">
+          <h3 class="mb-3">Real threats on campus</h3>
+          <ul style="list-style:none;display:flex;flex-direction:column;gap:0.85rem">
+            <li class="flex gap-3 items-center"><span class="badge badge-danger">01</span> Fake TCS / Microsoft internship offers demanding fees</li>
+            <li class="flex gap-3 items-center"><span class="badge badge-warning">02</span> Fake scholarship portals harvesting KYC & UPI</li>
+            <li class="flex gap-3 items-center"><span class="badge badge-danger">03</span> WhatsApp OTP scams impersonating Placement Cell</li>
+            <li class="flex gap-3 items-center"><span class="badge badge-warning">04</span> Fake fee-payment links & remote-access “verification”</li>
+            <li class="flex gap-3 items-center"><span class="badge badge-info">05</span> Viral fake news & deepfake college announcements</li>
+          </ul>
+        </div>
+        <div class="card card-static" style="background:var(--gradient);color:#fff;border:none">
+          <h3 style="margin-bottom:1rem">The CyberAware advantage</h3>
+          <p style="opacity:0.9;margin-bottom:1.25rem">Instead of scattered PDFs and one-time workshops, students get continuous practice, AI assistance, and peer alerts — the way modern security products work.</p>
+          <div class="flex flex-col gap-3">
+            <div class="flex justify-between"><span>Detection confidence</span><strong>+64%</strong></div>
+            <div class="progress" style="background:rgba(255,255,255,0.25)"><div class="progress-bar" style="width:78%;background:#fff"></div></div>
+            <div class="flex justify-between"><span>Scam reports shared</span><strong>186+</strong></div>
+            <div class="progress" style="background:rgba(255,255,255,0.25)"><div class="progress-bar" style="width:62%;background:#fff"></div></div>
+            <div class="flex justify-between"><span>Students trained</span><strong>2,400+</strong></div>
+            <div class="progress" style="background:rgba(255,255,255,0.25)"><div class="progress-bar" style="width:88%;background:#fff"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section class="section" style="padding-top:0">
+    <div class="container">
+      <div class="stats-grid">
+        <div class="card stat-card animate-in">
+          <div class="stat-icon">🎯</div>
+          <div class="stat-value">78%</div>
+          <div class="stat-label">Avg. Awareness Score</div>
+          <div class="stat-trend up mt-2">↑ 32% after training</div>
+        </div>
+        <div class="card stat-card animate-in delay-1">
+          <div class="stat-icon">🤖</div>
+          <div class="stat-value">1,240</div>
+          <div class="stat-label">AI Scam Checks</div>
+          <div class="stat-trend up mt-2">↑ 18% this week</div>
+        </div>
+        <div class="card stat-card animate-in delay-2">
+          <div class="stat-icon">🚨</div>
+          <div class="stat-value">186</div>
+          <div class="stat-label">Community Reports</div>
+          <div class="stat-trend up mt-2">42 pending review</div>
+        </div>
+        <div class="card stat-card animate-in delay-3">
+          <div class="stat-icon">🏆</div>
+          <div class="stat-value">94%</div>
+          <div class="stat-label">Quiz Pass Rate</div>
+          <div class="stat-trend up mt-2">Campus-wide</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="section" id="how">
+    <div class="container">
+      <div class="section-header">
+        <h2>How it works</h2>
+        <p>Four steps from unaware to cyber-resilient.</p>
+      </div>
+      <div class="grid-4">
+        <div class="card text-center animate-in">
+          <div class="feature-icon" style="margin:0 auto 1rem">1</div>
+          <h3 class="mb-2">Assess</h3>
+          <p class="text-sm text-muted">Take the pre-awareness survey to baseline your knowledge.</p>
+        </div>
+        <div class="card text-center animate-in delay-1">
+          <div class="feature-icon" style="margin:0 auto 1rem">2</div>
+          <h3 class="mb-2">Learn</h3>
+          <p class="text-sm text-muted">Complete interactive modules and timed quizzes with certificates.</p>
+        </div>
+        <div class="card text-center animate-in delay-2">
+          <div class="feature-icon" style="margin:0 auto 1rem">3</div>
+          <h3 class="mb-2">Detect</h3>
+          <p class="text-sm text-muted">Use AI Scam Checker and the browser extension on real threats.</p>
+        </div>
+        <div class="card text-center animate-in delay-3">
+          <div class="feature-icon" style="margin:0 auto 1rem">4</div>
+          <h3 class="mb-2">Protect</h3>
+          <p class="text-sm text-muted">Report scams, follow alerts, and retake the post survey.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MODULES PREVIEW -->
+  <section class="section" id="modules" style="padding-top:0">
+    <div class="container">
+      <div class="section-header">
+        <h2>Five core modules</h2>
+        <p>Aligned with the project documentation — production UI for every workflow.</p>
+      </div>
+      <div class="grid-3" id="module-preview"></div>
+      <div class="text-center mt-4">
+        <a href="pages/login.html" class="btn btn-primary">Access Full Platform →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="section" style="padding-top:0">
+    <div class="container">
+      <div class="card card-static" style="padding:3rem;text-align:center;background:var(--gradient);color:#fff;border:none">
+        <h2 style="margin-bottom:0.75rem">Ready to raise your campus defense?</h2>
+        <p style="opacity:0.9;max-width:540px;margin:0 auto 1.75rem">Join students building digital literacy against fake news, phishing, and fraudulent opportunities.</p>
+        <div class="flex flex-wrap gap-3" style="justify-content:center">
+          <a href="pages/login.html" class="btn btn-lg" style="background:#fff;color:#4f46e5">Student Login</a>
+          <a href="pages/login.html#admin" class="btn btn-lg btn-secondary" style="border-color:rgba(255,255,255,0.4);color:#fff;background:transparent">Admin Console</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="section" id="faq" style="padding-top:0">
+    <div class="container" style="max-width:800px">
+      <div class="section-header">
+        <h2>Frequently asked questions</h2>
+        <p>Everything you need to know about CyberAware.</p>
+      </div>
+      <div id="faq-list"></div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <div class="brand mb-3">
+            <div class="brand-icon">🛡️</div>
+            <span>CyberAware</span>
+          </div>
+          <p class="text-muted text-sm" style="max-width:320px">
+            Fake News Detection Awareness in Colleges — a premium platform for student cybersecurity literacy.
+          </p>
+        </div>
+        <div>
+          <h4>Platform</h4>
+          <ul>
+            <li><a href="pages/dashboard.html">Dashboard</a></li>
+            <li><a href="pages/ai-checker.html">AI Checker</a></li>
+            <li><a href="pages/community.html">Alert Wall</a></li>
+            <li><a href="pages/extension.html">Extension</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Learn</h4>
+          <ul>
+            <li><a href="pages/learning.html">Modules</a></li>
+            <li><a href="pages/quiz.html">Quizzes</a></li>
+            <li><a href="pages/survey.html">Survey</a></li>
+            <li><a href="pages/analytics.html">Analytics</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>Account</h4>
+          <ul>
+            <li><a href="pages/login.html">Login</a></li>
+            <li><a href="pages/profile.html">Profile</a></li>
+            <li><a href="pages/admin.html">Admin</a></li>
+            <li><a href="pages/404.html">Help Center</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 CyberAware · College Cybersecurity Awareness Platform</span>
+        <span>Frontend demo · API placeholders ready for Flask / Gemini</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    // Module cards
+    const modules = [
+      { t: "01 · Survey", d: "Pre/post awareness measurement with scoring.", href: "pages/survey.html" },
+      { t: "02 · Learn & Quiz", d: "Interactive cards, timers, leaderboards, badges.", href: "pages/learning.html" },
+      { t: "03 · AI Checker", d: "Paste messages, upload screenshots, get risk meters.", href: "pages/ai-checker.html" },
+      { t: "04 · Alert Wall", d: "Community scam feed with verification workflow.", href: "pages/community.html" },
+      { t: "05 · Extension", d: "Chrome protection mockup with safe/danger states.", href: "pages/extension.html" },
+      { t: "Admin & Analytics", d: "Manage students, approve posts, view charts.", href: "pages/admin.html" },
+    ];
+    document.getElementById("module-preview").innerHTML = modules.map((m, i) => `
+      <a href="${m.href}" class="card animate-in delay-${i % 4}" style="display:block">
+        <span class="badge badge-primary mb-3">${m.t.split("·")[0].trim()}</span>
+        <h3 style="margin-bottom:0.5rem">${m.t}</h3>
+        <p class="text-sm text-muted">${m.d}</p>
+      </a>
+    `).join("");
+
+    document.getElementById("faq-list").innerHTML = AppData.faq.map((f) => `
+      <div class="faq-item">
+        <button class="faq-q" type="button">${f.q}<span>+</span></button>
+        <div class="faq-a">${f.a}</div>
+      </div>
+    `).join("");
+  </script>
+</body>
+</html>
