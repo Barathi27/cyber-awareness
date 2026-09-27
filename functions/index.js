@@ -1,94 +1,125 @@
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
-const { onDocumentWritten } = require("firebase-functions/v2/firestore");
-const { defineSecret } = require("firebase-functions/params");
-
-const logger = require("firebase-functions/logger");
+const express = require("express");
+const cors = require("cors");
 const admin = require("firebase-admin");
 const Groq = require("groq-sdk");
 
-admin.initializeApp();
+const app = express();
 
 // =====================================================
-// GROQ API SECRET
+// MIDDLEWARE
 // =====================================================
 
-const GROQ_API_KEY = defineSecret("GROQ_API_KEY");
+app.use(cors());
+
+app.use(
+  express.json({
+    limit: "15mb",
+  }),
+);
+
+// =====================================================
+// FIREBASE ADMIN
+// =====================================================
+
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+    }),
+  });
+}
+
+// =====================================================
+// HEALTH CHECK
+// =====================================================
+
+app.get("/", (req, res) => {
+  res.json({
+    success: true,
+    message: "CyberAware AI backend is running.",
+  });
+});
 
 // =====================================================
 // AI SCAM CHECKER
 // =====================================================
 
-exports.analyzeScam = onCall(
-  {
-    region: "asia-south1",
-
-    // Give this Cloud Function access to the Groq secret
-    secrets: [GROQ_API_KEY],
-  },
-
-  async (request) => {
+app.post("/analyze-scam", async (req, res) => {
+  try {
     // =================================================
-    // CHECK LOGIN
+    // CHECK FIREBASE LOGIN
     // =================================================
 
-    if (!request.auth) {
-      throw new HttpsError(
-        "unauthenticated",
-        "You must be logged in to use the AI Scam Checker.",
-      );
+    const authHeader = req.headers.authorization || "";
+
+    if (!authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required.",
+      });
     }
+
+    const idToken = authHeader.substring(7);
+
+    let decodedToken;
+
+    try {
+      decodedToken = await admin.auth().verifyIdToken(idToken);
+    } catch (error) {
+      console.error("Firebase token verification failed:", error);
+
+      return res.status(401).json({
+        success: false,
+        message: "Invalid or expired authentication token.",
+      });
+    }
+
+    const uid = decodedToken.uid;
 
     // =================================================
     // CHECK GROQ API KEY
     // =================================================
 
-    const apiKey = String(GROQ_API_KEY.value() || "").trim();
+    const apiKey = String(process.env.GROQ_API_KEY || "").trim();
 
     if (!apiKey) {
-      logger.error("GROQ_API_KEY is missing.");
+      console.error("GROQ_API_KEY is missing.");
 
-      throw new HttpsError(
-        "failed-precondition",
-        "Groq API key is not configured on the server.",
-      );
+      return res.status(500).json({
+        success: false,
+        message: "Groq API key is not configured.",
+      });
     }
-
-    // =================================================
-    // CREATE GROQ CLIENT
-    // =================================================
 
     const groq = new Groq({
       apiKey,
     });
 
     // =================================================
-    // GET DATA
+    // GET INPUT
     // =================================================
 
-    const text = String(request.data?.text || "").trim();
-    const imageData = String(request.data?.imageData || "").trim();
-
-    // =================================================
-    // VALIDATE INPUT
-    // =================================================
+    const text = String(req.body?.text || "").trim();
+    const imageData = String(req.body?.imageData || "").trim();
 
     if (!text && !imageData) {
-      throw new HttpsError(
-        "invalid-argument",
-        "Please provide a message or screenshot to analyze.",
-      );
+      return res.status(400).json({
+        success: false,
+        message: "Please provide a message or screenshot.",
+      });
     }
 
     if (text.length > 10000) {
-      throw new HttpsError("invalid-argument", "Message is too long.");
+      return res.status(400).json({
+        success: false,
+        message: "Message is too long.",
+      });
     }
 
-    // =================================================
-    // LOG REQUEST
-    // =================================================
-
-    logger.info("CyberAware AI Scam Checker request", {
-      uid: request.auth.uid,
+    console.log("CyberAware AI request:", {
+      uid,
       hasText: Boolean(text),
       hasImage: Boolean(imageData),
       textLength: text.length,
@@ -102,7 +133,6 @@ exports.analyzeScam = onCall(
 
     content.push({
       type: "text",
-
       text: `
 You are CyberAware, a cybersecurity scam detection assistant.
 
@@ -150,7 +180,7 @@ ${text ? `Message to analyze:\n${text}` : "Analyze the screenshot image."}
     });
 
     // =================================================
-    // ADD IMAGE IF PROVIDED
+    // ADD IMAGE
     // =================================================
 
     if (imageData) {
@@ -163,26 +193,15 @@ ${text ? `Message to analyze:\n${text}` : "Analyze the screenshot image."}
     }
 
     // =================================================
-    // CALL GROQ AI
+    // CALL GROQ
     // =================================================
 
     let completion;
 
     try {
-      logger.info("Sending request to Groq AI...", {
-        uid: request.auth.uid,
-
-        // Current Groq model
-        model: "qwen/qwen3.8-27b",
-
-        hasImage: Boolean(imageData),
-      });
+      console.log("Sending request to Groq AI...");
 
       completion = await groq.chat.completions.create({
-        // =================================================
-        // GROQ MODEL
-        // =================================================
-
         model: "qwen/qwen3.8-27b",
 
         messages: [
@@ -192,47 +211,23 @@ ${text ? `Message to analyze:\n${text}` : "Analyze the screenshot image."}
           },
         ],
 
-        // Low temperature gives more consistent
-        // scam classifications and JSON responses.
         temperature: 0.2,
 
-        // Maximum response size.
         max_completion_tokens: 700,
 
-        // We don't need visible reasoning for
-        // a scam-classification application.
         reasoning_effort: "none",
 
         reasoning_format: "hidden",
       });
 
-      logger.info("Groq API request completed successfully.", {
-        uid: request.auth.uid,
-        model: "qwen/qwen3.8-27b",
-      });
+      console.log("Groq request completed.");
     } catch (error) {
-      logger.error("Groq AI request failed.", {
-        uid: request.auth.uid,
+      console.error("Groq AI request failed:", error);
 
-        message: error?.message || "Unknown error",
-
-        status: error?.status || null,
-
-        name: error?.name || null,
-
-        type: error?.type || null,
-
-        code: error?.code || null,
-
-        response: error?.response?.data || error?.response || null,
-
-        stack: error?.stack || null,
+      return res.status(500).json({
+        success: false,
+        message: "Groq AI analysis failed.",
       });
-
-      throw new HttpsError(
-        "internal",
-        "Groq AI analysis failed. Please try again.",
-      );
     }
 
     // =================================================
@@ -242,17 +237,11 @@ ${text ? `Message to analyze:\n${text}` : "Analyze the screenshot image."}
     const rawResponse = completion?.choices?.[0]?.message?.content || "";
 
     if (!rawResponse) {
-      logger.error("Groq returned an empty response.", {
-        uid: request.auth.uid,
+      return res.status(500).json({
+        success: false,
+        message: "AI returned an empty response.",
       });
-
-      throw new HttpsError("internal", "AI returned an empty response.");
     }
-
-    logger.info("Groq returned an AI response.", {
-      uid: request.auth.uid,
-      responseLength: rawResponse.length,
-    });
 
     // =================================================
     // PARSE JSON
@@ -268,15 +257,12 @@ ${text ? `Message to analyze:\n${text}` : "Analyze the screenshot image."}
 
       result = JSON.parse(cleanedResponse);
     } catch (error) {
-      logger.error("Invalid AI JSON response.", {
-        uid: request.auth.uid,
+      console.error("Invalid AI JSON:", rawResponse);
 
-        response: rawResponse,
-
-        error: error?.message || "JSON parsing failed",
+      return res.status(500).json({
+        success: false,
+        message: "AI returned an invalid analysis.",
       });
-
-      throw new HttpsError("internal", "AI returned an invalid analysis.");
     }
 
     // =================================================
@@ -330,110 +316,40 @@ ${text ? `Message to analyze:\n${text}` : "Analyze the screenshot image."}
         ];
 
     // =================================================
-    // LOG COMPLETED RESULT
-    // =================================================
-
-    logger.info("Groq AI analysis completed successfully.", {
-      uid: request.auth.uid,
-      risk,
-      label,
-    });
-
-    // =================================================
     // RETURN RESULT
     // =================================================
 
-    return {
-      success: true,
-
-      message: "CyberAware AI analysis completed successfully.",
-
+    console.log("CyberAware analysis completed:", {
+      uid,
       risk,
-
       label,
+    });
 
+    return res.json({
+      success: true,
+      message: "CyberAware AI analysis completed successfully.",
+      risk,
+      label,
       explanation,
-
       keywords,
-
       tips,
-    };
-  },
-);
+    });
+  } catch (error) {
+    console.error("Unexpected server error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error occurred.",
+    });
+  }
+});
 
 // =====================================================
-// LEADERBOARD SYNC
+// START SERVER
 // =====================================================
 
-exports.syncLeaderboard = onDocumentWritten(
-  {
-    document: "users/{userId}",
+const PORT = process.env.PORT || 10000;
 
-    region: "asia-south1",
-  },
-
-  async (event) => {
-    const userId = event.params.userId;
-
-    const after = event.data?.after?.data();
-
-    const leaderboardRef = admin
-      .firestore()
-      .collection("leaderboard")
-      .doc(userId);
-
-    // =================================================
-    // USER DELETED
-    // =================================================
-
-    if (!after) {
-      await leaderboardRef.delete();
-
-      logger.info("Leaderboard entry deleted", {
-        userId,
-      });
-
-      return;
-    }
-
-    // =================================================
-    // ONLY STUDENTS
-    // =================================================
-
-    if (after.role !== "student") {
-      await leaderboardRef.delete();
-
-      return;
-    }
-
-    // =================================================
-    // CREATE / UPDATE LEADERBOARD ENTRY
-    // =================================================
-
-    const leaderboardData = {
-      name: after.name || "Student",
-
-      bestQuizScore: Number(after.bestQuizScore || 0),
-
-      awarenessScore: Number(after.awarenessScore || 0),
-
-      certificates: Number(after.certificates || 0),
-
-      quizzesCompleted: Number(after.quizzesCompleted || 0),
-
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    };
-
-    await leaderboardRef.set(leaderboardData, {
-      merge: true,
-    });
-
-    logger.info("Leaderboard entry synchronized", {
-      userId,
-
-      name: leaderboardData.name,
-
-      bestQuizScore: leaderboardData.bestQuizScore,
-    });
-  },
-);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`CyberAware backend running on port ${PORT}`);
+});
