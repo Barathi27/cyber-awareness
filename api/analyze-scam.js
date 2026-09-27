@@ -82,7 +82,7 @@ Rules:
     }
 
     const completion = await groq.chat.completions.create({
-      model: "meta-llama/llama-4-scout-17b-16e-instruct",
+      model: "qwen/qwen3.8-27b",
       messages: [
         {
           role: "user",
@@ -90,7 +90,10 @@ Rules:
         },
       ],
       temperature: 0.2,
-      max_tokens: 1000,
+      max_completion_tokens: 1000,
+      response_format: {
+        type: "json_object",
+      },
     });
 
     const rawResponse = completion.choices?.[0]?.message?.content || "";
