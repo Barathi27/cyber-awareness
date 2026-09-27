@@ -133,9 +133,6 @@
     <!-- FIREBASE AUTH -->
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 
-    <!-- FIREBASE FUNCTIONS -->
-    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-functions-compat.js"></script>
-
     <!-- =========================================================
          FIREBASE CONFIG
     ========================================================== -->
@@ -194,22 +191,11 @@
         "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js";
 
       // =========================================================
-      // CLOUD FUNCTION REGION
+      // VERCEL API SETTINGS
       // =========================================================
 
-      const CLOUD_FUNCTION_REGION = "asia-south1";
-
-      const CLOUD_FUNCTION_NAME = "analyzeScam";
-
-      // =========================================================
-      // LOCAL EMULATOR SETTINGS
-      // =========================================================
-
-      const USE_FUNCTIONS_EMULATOR = false;
-
-      const FUNCTIONS_EMULATOR_HOST = "127.0.0.1";
-
-      const FUNCTIONS_EMULATOR_PORT = 5001;
+      // The Vercel serverless API is deployed at /api/analyze-scam.
+      const AI_API_ENDPOINT = "/api/analyze-scam";
 
       // =========================================================
       // LOAD FIRESTORE SDK
@@ -402,10 +388,6 @@
 
           if (typeof firebase.firestore !== "function") {
             throw new Error("Firebase Firestore SDK is not available.");
-          }
-
-          if (typeof firebase.functions !== "function") {
-            throw new Error("Firebase Functions SDK is not available.");
           }
 
           // -------------------------------------------------------
@@ -755,30 +737,11 @@
       }
 
       // =========================================================
-      // CALL GROQ THROUGH FIREBASE FUNCTIONS
-      // LOCAL EMULATOR ENABLED
+      // CALL GROQ THROUGH VERCEL API
       // =========================================================
 
       async function analyzeWithGroq(text, imageData) {
-        // -------------------------------------------------------
-        // CHECK FIREBASE
-        // -------------------------------------------------------
-
-        if (typeof firebase === "undefined") {
-          throw new Error("Firebase is not loaded.");
-        }
-
-        // -------------------------------------------------------
-        // CHECK FUNCTIONS SDK
-        // -------------------------------------------------------
-
-        if (!firebase.functions || typeof firebase.functions !== "function") {
-          throw new Error("Firebase Functions SDK is not loaded.");
-        }
-
-        console.info(
-          "[CyberAware] Calling Groq AI through Firebase Cloud Function...",
-        );
+        console.info("[CyberAware] Calling Groq AI through Vercel API...");
 
         // -------------------------------------------------------
         // ENSURE USER AUTHENTICATION
@@ -798,126 +761,107 @@
 
         console.info("[CyberAware] Authenticated UID ready:", user.uid);
 
-        // =======================================================
-        // CONNECT TO FIREBASE FUNCTIONS
-        // =======================================================
+        // -------------------------------------------------------
+        // GET FIREBASE ID TOKEN
+        // -------------------------------------------------------
 
-        const functions = firebase.app().functions(CLOUD_FUNCTION_REGION);
+        let idToken = "";
 
-        // =======================================================
-        // LOCAL EMULATOR
-        // =======================================================
-
-        if (USE_FUNCTIONS_EMULATOR) {
-          functions.useEmulator(
-            FUNCTIONS_EMULATOR_HOST,
-            FUNCTIONS_EMULATOR_PORT,
+        try {
+          idToken = await user.getIdToken(true);
+        } catch (tokenError) {
+          console.warn(
+            "[CyberAware] Could not refresh Firebase ID token:",
+            tokenError,
           );
 
-          console.info("[CyberAware] Using LOCAL Firebase Functions Emulator.");
-
-          console.info("[CyberAware] Emulator host:", FUNCTIONS_EMULATOR_HOST);
-
-          console.info("[CyberAware] Emulator port:", FUNCTIONS_EMULATOR_PORT);
-        } else {
-          console.info("[CyberAware] Using DEPLOYED Firebase Cloud Function.");
+          idToken = await user.getIdToken();
         }
 
-        console.info("[CyberAware] Function region:", CLOUD_FUNCTION_REGION);
-
-        console.info("[CyberAware] Function name:", CLOUD_FUNCTION_NAME);
-
         // -------------------------------------------------------
-        // CREATE CALLABLE FUNCTION
+        // SEND REQUEST TO VERCEL SERVERLESS FUNCTION
         // -------------------------------------------------------
 
-        const analyzeScamFunction =
-          functions.httpsCallable(CLOUD_FUNCTION_NAME);
+        console.info("[CyberAware] Sending request to:", AI_API_ENDPOINT);
 
-        // -------------------------------------------------------
-        // SEND DATA
-        // -------------------------------------------------------
+        console.info("[CyberAware] Payload:", {
+          hasText: Boolean(text),
+          textLength: String(text || "").length,
+          hasImage: Boolean(imageData),
+        });
 
         let response;
 
         try {
-          console.info("[CyberAware] Sending request to analyzeScam...");
-
-          console.info("[CyberAware] Payload:", {
-            hasText: Boolean(text),
-
-            textLength: String(text || "").length,
-
-            hasImage: Boolean(imageData),
+          response = await fetch(AI_API_ENDPOINT, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+            },
+            body: JSON.stringify({
+              text: text || "",
+              imageData: imageData || null,
+            }),
           });
+        } catch (networkError) {
+          console.error("[CyberAware] Vercel API network error:", networkError);
 
-          response = await analyzeScamFunction({
-            text: text || "",
-
-            imageData: imageData || null,
-          });
-
-          console.info("[CyberAware] Cloud Function request completed.");
-        } catch (error) {
-          console.error("[CyberAware] Cloud Function call failed:", error);
-
-          console.error(
-            "[CyberAware] Function error code:",
-            error?.code || "No code",
+          throw new Error(
+            "Unable to connect to the AI server. Please check your internet connection and try again.",
           );
-
-          console.error(
-            "[CyberAware] Function error details:",
-            error?.details || "No details",
-          );
-
-          console.error(
-            "[CyberAware] Function error message:",
-            error?.message || "No message",
-          );
-
-          let functionMessage =
-            error?.details || error?.message || "The AI Cloud Function failed.";
-
-          if (error?.code === "functions/unauthenticated") {
-            functionMessage =
-              "Firebase authentication failed. Please login again.";
-          }
-
-          if (error?.code === "functions/permission-denied") {
-            functionMessage =
-              "You do not have permission to use the AI Scam Checker.";
-          }
-
-          if (error?.code === "functions/not-found") {
-            functionMessage =
-              "The analyzeScam Cloud Function was not found in the local emulator.";
-          }
-
-          if (error?.code === "functions/internal") {
-            functionMessage =
-              "The Cloud Function returned an internal error. Check the Firebase Functions emulator terminal.";
-          }
-
-          if (error?.code === "functions/resource-exhausted") {
-            functionMessage =
-              "The AI service request limit was reached. Please try again later.";
-          }
-
-          throw new Error(`AI Cloud Function error: ${functionMessage}`);
         }
 
         // -------------------------------------------------------
-        // VALIDATE RESPONSE
+        // READ API RESPONSE
         // -------------------------------------------------------
 
-        if (!response || !response.data) {
-          throw new Error("AI function returned an empty response.");
+        let payload = null;
+
+        try {
+          payload = await response.json();
+        } catch (parseError) {
+          console.error(
+            "[CyberAware] Vercel API returned invalid JSON:",
+            parseError,
+          );
+
+          throw new Error(
+            `AI server returned an invalid response (HTTP ${response.status}).`,
+          );
         }
 
-        const data = response.data;
+        console.info("[CyberAware] Vercel API response received:", payload);
 
-        console.info("[CyberAware] Groq AI response received:", data);
+        if (!response.ok) {
+          const serverMessage =
+            payload?.error ||
+            payload?.message ||
+            `AI server request failed (HTTP ${response.status}).`;
+
+          if (response.status === 401) {
+            throw new Error(
+              "Firebase authentication failed. Please login again.",
+            );
+          }
+
+          if (response.status === 429) {
+            throw new Error(
+              "The AI service request limit was reached. Please try again later.",
+            );
+          }
+
+          throw new Error(String(serverMessage));
+        }
+
+        // Support both response formats:
+        // { risk, label, ... }
+        // and { data: { risk, label, ... } }
+        const data = payload?.data || payload;
+
+        if (!data || typeof data !== "object") {
+          throw new Error("AI server returned an empty response.");
+        }
 
         // -------------------------------------------------------
         // RISK
@@ -942,24 +886,19 @@
         // -------------------------------------------------------
 
         let displayLabel = backendLabel;
-
         let badge = "badge-info";
 
         if (risk >= 80) {
           displayLabel = "Critical Scam";
-
           badge = "badge-danger";
         } else if (risk >= 60) {
           displayLabel = "High Risk";
-
           badge = "badge-warning";
         } else if (risk >= 40) {
           displayLabel = "Suspicious";
-
           badge = "badge-info";
         } else {
           displayLabel = "Safe";
-
           badge = "badge-success";
         }
 
@@ -1001,19 +940,12 @@
 
         return {
           risk,
-
           label: displayLabel,
-
           backendLabel,
-
           badge,
-
           found,
-
           explanation,
-
           tips,
-
           engine: data.engine || "Groq Qwen 3.8 27B",
         };
       }
@@ -2044,13 +1976,13 @@
           console.info("[CyberAware] Has screenshot:", Boolean(imageData));
 
           // =====================================================
-          // CALL CLOUD FUNCTION / LOCAL EMULATOR → GROQ
+          // CALL VERCEL API → GROQ
           // =====================================================
 
           const scored = await analyzeWithGroq(text, imageData);
 
           console.info(
-            "[CyberAware] Cloud Function returned successfully:",
+            "[CyberAware] Vercel API returned successfully:",
             scored,
           );
 
